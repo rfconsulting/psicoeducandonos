@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Postulación al Diplomado · Psicoeducándonos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="auth.css"><link rel="stylesheet" href="postulacion.css">
+  <script src="postulacion.js" defer></script>
+</head>
+<body class="application-page">
+  <header class="application-header"><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a><a href="/">Volver al inicio</a></header>
+  <main class="application-main">
+    <section class="application-intro"><span>Diplomado gratuito</span><h1>Postulación al programa</h1><p>Queremos conocerte y comprender cómo deseas participar en esta red de acompañamiento. Completar el formulario no implica admisión automática.</p></section>
+    <form class="application-form" id="application-form">
+      <fieldset><legend>Datos personales</legend>
+        <div class="form-grid">
+          <div class="field"><label for="full-name">Nombre y apellido</label><input id="full-name" name="fullName" maxlength="120" autocomplete="name" required></div>
+          <div class="field"><label for="application-email">Correo electrónico</label><input id="application-email" name="email" type="email" maxlength="254" autocomplete="email" required></div>
+          <div class="field"><label for="phone">Teléfono de contacto</label><input id="phone" name="phone" type="tel" maxlength="40" autocomplete="tel" required></div>
+          <div class="field"><label for="age-range">Rango de edad</label><select id="age-range" name="ageRange" required><option value="">Selecciona</option><option value="18-25">18 a 25 años</option><option value="26-40">26 a 40 años</option><option value="41-60">41 a 60 años</option><option value="61-plus">61 años o más</option></select></div>
+        </div>
+        <div class="field"><label for="location">Ciudad y país de residencia</label><input id="location" name="location" maxlength="160" required></div>
+      </fieldset>
+      <fieldset><legend>Tu postulación</legend>
+        <div class="field"><label for="pathway">¿A cuál camino de formación te postulas?</label><select id="pathway" name="pathway" required><option value="">Selecciona</option><option value="accompaniment">Acompañamiento — quiero ayudar aunque no soy profesional de la salud</option><option value="health-professional">Profesional de la salud — medicina, psicología, psiquiatría u otra área clínica</option></select></div>
+        <div class="field"><label for="experience">¿Tienes experiencia acompañando personas en crisis, duelo o momentos difíciles?</label><select id="experience" name="crisisExperience" required><option value="">Selecciona</option><option value="true">Sí</option><option value="false">No</option></select></div>
+        <div class="field"><label for="motivation">¿Qué te motiva a sumarte a la red?</label><textarea id="motivation" name="motivation" rows="6" minlength="20" maxlength="5000" required></textarea></div>
+        <div class="field"><label for="referral-source">¿Cómo te enteraste de nosotros?</label><select id="referral-source" name="referralSource" required><option value="">Selecciona</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="whatsapp">WhatsApp</option><option value="acquaintance">Una persona conocida</option><option value="other">Otro medio</option></select></div>
+      </fieldset>
+      <fieldset><legend>Clase informativa</legend>
+        <div class="field"><label for="attended-session">¿Participaste en la clase informativa del diplomado?</label><select id="attended-session" name="attendedInfoSession"><option value="">Prefiero no responder</option><option value="true">Sí</option><option value="false">No</option></select></div>
+        <div class="field" id="feedback-field" hidden><label for="session-feedback">¿Qué te pareció y qué herramientas te llevas?</label><textarea id="session-feedback" name="sessionFeedback" rows="5" maxlength="5000"></textarea></div>
+      </fieldset>
+      <fieldset><legend>Consentimientos</legend>
+        <label class="consent"><input name="privacyConsent" type="checkbox" required> Acepto que mis datos sean utilizados para gestionar esta postulación y contactarme sobre el proceso.</label>
+        <label class="consent"><input name="supervisionCommitment" type="checkbox" required> Comprendo que la formación es gratuita y conlleva un compromiso de formación y supervisión.</label>
+        <label class="consent optional"><input name="newsletterConsent" type="checkbox"> Quiero recibir información y novedades del programa. Esta autorización es opcional.</label>
+      </fieldset>
+      <p class="form-message" role="alert"></p><button class="submit-button" type="submit">Enviar postulación</button>
+    </form>
+  </main>
+</body>
+</html>

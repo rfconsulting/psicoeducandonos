@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Ingresar · Psicoeducándonos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="auth.css">
+    <script src="auth.js" defer></script>
+</head>
+
+<body>
+    <div class="auth-shell">
+        <aside class="auth-aside"><a class="brand" href="/"><img src="assets/logo.png"
+                    alt=""><span>Psicoeducándonos</span></a>
+            <div class="auth-message"><span>Bienvenido de nuevo</span>
+                <h1>Una red que elige <em>sostener.</em></h1>
+                <p>Ingresa para acceder a tu formación y continuar construyendo una comunidad de acompañamiento
+                    responsable.</p>
+            </div><small>Formación · Comunidad · Presencia</small>
+        </aside>
+        <main class="auth-main">
+            <section class="auth-card"><a href="/">← Volver al inicio</a>
+                <h2>Iniciar sesión</h2>
+                <p class="subtitle">Accede con el correo asociado a tu cuenta.</p>
+                <form data-auth-form="login" novalidate>
+                    <div class="field"><label for="email">Correo electrónico</label><input id="email" name="email"
+                            type="email" autocomplete="email" maxlength="254" required></div>
+                    <div class="field"><label for="password">Contraseña</label><input id="password" name="password"
+                            type="password" autocomplete="current-password" maxlength="72" required></div>
+                    <p class="form-message" role="alert" aria-live="polite"></p><button class="submit-button"
+                        type="submit">Ingresar</button>
+                </form>
+                <p class="switch"><a href="recuperar-password.html">¿Olvidaste tu contraseña?</a></p>
+                <p class="switch">¿Aún no eres estudiante? <a href="postulacion.html">Envía tu postulación</a></p>
+            </section>
+        </main>
+    </div>
+</body>
+
+</html>

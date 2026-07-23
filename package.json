@@ -1,0 +1,38 @@
+{
+  "name": "psicoeducandonos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma educativa de Psicoeducándonos",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "create-superuser": "node scripts/create-superuser.js",
+    "migrate:p0": "node scripts/migrate-p0.js",
+    "migrate:p1": "node scripts/migrate-p1.js",
+    "migrate:p2": "node scripts/migrate-p2.js",
+    "migrate:p3": "node scripts/migrate-p3.js",
+    "migrate:p4": "node scripts/migrate-p4.js",
+    "test": "node --test",
+    "lint": "node scripts/check-js.js",
+    "check:secrets": "node scripts/check-secrets.js",
+    "retention:dry": "node scripts/retention.js",
+    "retention:run": "node scripts/retention.js --execute",
+    "check": "node --check src/server.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.0.1",
+    "express-session": "^1.18.2",
+    "helmet": "^8.1.0",
+    "mysql2": "^3.14.3",
+    "qrcode": "^1.5.4"
+  }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+  <title>Mi formación · Psicoeducándonos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="auth.css"><script src="estudiante.js" defer></script>
+</head>
+<body class="dashboard">
+  <header><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a><div class="dashboard-actions"><span id="session-email"></span><button id="logout" type="button">Cerrar sesión</button></div></header>
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar" aria-label="Menú del espacio estudiantil">
+      <p class="sidebar-label">Mi formación</p>
+      <nav class="dashboard-nav">
+        <button class="nav-item active" type="button" data-panel-target="available-panel">Cursos disponibles</button>
+        <button class="nav-item" type="button" data-panel-target="my-courses-panel">Mi curso</button>
+        <button class="nav-item" type="button" data-panel-target="student-blog-panel">Blog</button>
+      </nav>
+    </aside>
+    <main class="dashboard-content">
+      <section class="dashboard-panel" id="available-panel">
+        <div class="welcome"><span>Espacio estudiantil</span><h1>Hola, <span id="user-name">estudiante</span>.</h1><p>Explora la oferta de formación publicada.</p></div>
+        <p class="form-message" id="student-message" role="alert"></p>
+        <div class="content-section"><div class="content-heading"><div><span>Formación</span><h2>Cursos disponibles</h2></div></div><div class="content-list" id="courses-list"></div></div>
+      </section>
+      <section class="content-section dashboard-panel" id="my-courses-panel" hidden>
+        <div class="content-heading"><div><span>Mi formación</span><h2>Mi curso</h2></div><p>Cursos en los que estás inscrito y tu progreso.</p></div>
+        <div class="content-list" id="my-courses-list"></div>
+      </section>
+      <section class="content-section dashboard-panel" id="student-blog-panel" hidden>
+        <div class="content-heading"><div><span>Blog</span><h2>Artículos</h2></div><p>Recursos educativos de la comunidad.</p></div>
+        <div class="content-list" id="articles-list"></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

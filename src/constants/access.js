@@ -1,0 +1,49 @@
+const ROLES = Object.freeze({
+  SUPERUSER: 'superuser',
+  ADMINISTRATOR: 'administrator',
+  WRITER: 'writer',
+  TEACHER: 'teacher',
+  STUDENT: 'student'
+});
+
+const CAPABILITIES = Object.freeze({
+  ARTICLE_CREATE: 'article:create',
+  ARTICLE_MANAGE_ALL: 'article:manage-all',
+  COURSE_CREATE: 'course:create',
+  COURSE_MANAGE_ALL: 'course:manage-all',
+  STUDENT_TRACK: 'student:track',
+  USER_LIST: 'user:list',
+  USER_CREATE: 'user:create',
+  USER_ROLE_CHANGE: 'user:role-change',
+  USER_STATUS_CHANGE: 'user:status-change',
+  USER_PASSWORD_RESET: 'user:password-reset',
+  APPLICATION_MANAGE: 'application:manage',
+  AUDIT_VIEW: 'audit:view',
+  COURSE_ENROLL: 'course:enroll',
+  LEARNING_ACCESS: 'learning:access'
+});
+
+const ROLE_CAPABILITIES = Object.freeze({
+  [ROLES.SUPERUSER]: Object.values(CAPABILITIES),
+  [ROLES.ADMINISTRATOR]: [
+    CAPABILITIES.ARTICLE_CREATE, CAPABILITIES.ARTICLE_MANAGE_ALL,
+    CAPABILITIES.COURSE_CREATE, CAPABILITIES.COURSE_MANAGE_ALL,
+    CAPABILITIES.STUDENT_TRACK, CAPABILITIES.USER_LIST,
+    CAPABILITIES.USER_CREATE, CAPABILITIES.USER_STATUS_CHANGE,
+    CAPABILITIES.APPLICATION_MANAGE,
+    CAPABILITIES.COURSE_ENROLL, CAPABILITIES.LEARNING_ACCESS
+  ],
+  [ROLES.TEACHER]: [
+    CAPABILITIES.ARTICLE_CREATE, CAPABILITIES.COURSE_CREATE,
+    CAPABILITIES.STUDENT_TRACK, CAPABILITIES.COURSE_ENROLL,
+    CAPABILITIES.LEARNING_ACCESS
+  ],
+  [ROLES.WRITER]: [CAPABILITIES.ARTICLE_CREATE, CAPABILITIES.LEARNING_ACCESS],
+  [ROLES.STUDENT]: [CAPABILITIES.LEARNING_ACCESS]
+});
+
+function hasCapability(role, capability) {
+  return ROLE_CAPABILITIES[role]?.includes(capability) === true;
+}
+
+module.exports = { ROLES, CAPABILITIES, ROLE_CAPABILITIES, hasCapability };
