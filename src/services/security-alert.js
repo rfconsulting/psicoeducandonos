@@ -1,19 +1,21 @@
 const env = require('../config/env');
 const logger = require('./logger');
+const { getEmailService } = require('./email');
 
 async function securityAlert(type, fields = {}) {
-  if (!env.securityAlertWebhookUrl) return false;
+  if (!env.securityAlertEmail) return false;
   try {
-    const response = await fetch(env.securityAlertWebhookUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${env.securityAlertWebhookSecret}` },
-      body: JSON.stringify({ type, timestamp: new Date().toISOString(), ...fields }),
-      signal: AbortSignal.timeout(5000)
+    return await getEmailService().sendSecurityAlert({
+      to: env.securityAlertEmail,
+      type,
+      fields
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return true;
   } catch (error) {
-    logger.error('security_alert_delivery_failed', { type, errorName: error.name });
+    logger.error('security_alert_delivery_failed', {
+      type: String(type).slice(0, 80),
+      errorCode: error.code || 'email_delivery_failed',
+      temporary: error.temporary === true
+    });
     return false;
   }
 }

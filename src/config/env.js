@@ -21,6 +21,15 @@ function optionalUrl(name) {
   return url.toString().replace(/\/$/, '');
 }
 
+function publicApplicationUrl() {
+  const value = optionalUrl('APP_PUBLIC_URL') || 'http://localhost:3000';
+  const url = new URL(value);
+  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('APP_PUBLIC_URL debe contener únicamente el origen público, sin credenciales, ruta, query ni fragmento.');
+  }
+  return url.origin;
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction: process.env.NODE_ENV === 'production',
@@ -36,20 +45,21 @@ const env = {
     connectionLimit: integer('DB_CONNECTION_LIMIT', 10, 1, 100),
     charset: 'utf8mb4'
   },
-  publicBaseUrl: optionalUrl('PUBLIC_BASE_URL') || 'http://localhost:3000',
-  passwordResetWebhookUrl: optionalUrl('PASSWORD_RESET_WEBHOOK_URL'),
-  passwordResetWebhookSecret: String(process.env.PASSWORD_RESET_WEBHOOK_SECRET || ''),
+  appPublicUrl: publicApplicationUrl(),
+  emailProvider: String(process.env.EMAIL_PROVIDER || 'resend').trim().toLowerCase(),
+  resendApiKey: String(process.env.RESEND_API_KEY || '').trim(),
+  emailFrom: String(process.env.EMAIL_FROM || '').trim(),
+  securityAlertEmail: String(process.env.SECURITY_ALERT_EMAIL || '').trim(),
   mfaEncryptionKey: String(process.env.MFA_ENCRYPTION_KEY || ''),
-  securityAlertWebhookUrl: optionalUrl('SECURITY_ALERT_WEBHOOK_URL'),
-  securityAlertWebhookSecret: String(process.env.SECURITY_ALERT_WEBHOOK_SECRET || ''),
   dataRetentionDays: integer('DATA_RETENTION_DAYS', 730, 30, 3650)
 };
 
-if (env.isProduction && !env.passwordResetWebhookUrl) throw new Error('PASSWORD_RESET_WEBHOOK_URL es obligatorio en producción.');
-if (env.isProduction && !env.passwordResetWebhookSecret) throw new Error('PASSWORD_RESET_WEBHOOK_SECRET es obligatorio en producción.');
+if (env.emailProvider !== 'resend') throw new Error('EMAIL_PROVIDER debe ser resend.');
+if (env.isProduction && !env.resendApiKey) throw new Error('RESEND_API_KEY es obligatorio en producción.');
+if (env.isProduction && !env.emailFrom) throw new Error('EMAIL_FROM es obligatorio en producción.');
+if (env.isProduction && !process.env.APP_PUBLIC_URL) throw new Error('APP_PUBLIC_URL es obligatorio en producción.');
 if (env.mfaEncryptionKey && !/^[a-f0-9]{64}$/i.test(env.mfaEncryptionKey)) throw new Error('MFA_ENCRYPTION_KEY debe contener exactamente 64 caracteres hexadecimales.');
 if (env.isProduction && !env.mfaEncryptionKey) throw new Error('MFA_ENCRYPTION_KEY es obligatorio en producción.');
-if (env.isProduction && (!env.securityAlertWebhookUrl || !env.securityAlertWebhookSecret)) throw new Error('El webhook de alertas de seguridad es obligatorio en producción.');
 
 env.randomToken = () => crypto.randomBytes(32).toString('hex');
 module.exports = Object.freeze(env);

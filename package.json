@@ -6,7 +6,9 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "prestart": "node scripts/init-database.js && node scripts/bootstrap-superuser.js",
     "start": "node src/server.js",
+    "db:init": "node scripts/init-database.js",
     "create-superuser": "node scripts/create-superuser.js",
     "migrate:p0": "node scripts/migrate-p0.js",
     "migrate:p1": "node scripts/migrate-p1.js",
@@ -33,6 +35,7 @@
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "mysql2": "^3.14.3",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "resend": "^6.18.0"
   }
 }

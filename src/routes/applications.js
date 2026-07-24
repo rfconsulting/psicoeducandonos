@@ -9,6 +9,11 @@ const { pagination, page } = require('../utils/pagination');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
 const deliverPasswordReset = require('../services/password-reset');
+const {
+  STUDENT_SETUP_EXPIRES_MINUTES,
+  generateResetToken,
+  hashResetToken
+} = require('../services/password-reset-token');
 
 const router = express.Router();
 const AGE_RANGES = new Set(['18-25', '26-40', '41-60', '61-plus']);
@@ -135,8 +140,8 @@ router.patch('/:id/review', requireCapability(CAPABILITIES.APPLICATION_MANAGE), 
           userId = created.insertId;
           accountCreated = true;
           setupEmail = application.email;
-          setupToken = crypto.randomBytes(32).toString('hex');
-          const tokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
+          setupToken = generateResetToken();
+          const tokenHash = hashResetToken(setupToken);
           await connection.execute(
             'INSERT INTO password_reset_tokens (user_id,token_hash,expires_at) VALUES (?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 24 HOUR))',
             [userId, tokenHash]
@@ -154,7 +159,7 @@ router.patch('/:id/review', requireCapability(CAPABILITIES.APPLICATION_MANAGE), 
     if (!result?.affectedRows) return res.status(404).json({ error: 'Postulación no encontrada.' });
     let delivered = null;
     if (accountCreated && setupToken) {
-      try { delivered = await deliverPasswordReset(setupEmail, setupToken); }
+      try { delivered = await deliverPasswordReset(setupEmail, setupToken, STUDENT_SETUP_EXPIRES_MINUTES); }
       catch (deliveryError) { delivered = false; console.error('Falló la entrega de activación:', deliveryError.message); }
     }
     const message = accountCreated

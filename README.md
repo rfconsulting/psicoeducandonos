@@ -148,7 +148,7 @@ El panel de control está disponible únicamente para `superuser`, `administrato
 - Logs JSON con `requestId` y encabezado `X-Request-Id`.
 - Paginación por cursor para usuarios, artículos y cursos.
 - MFA TOTP obligatorio para `superuser` y `administrator`.
-- Alertas de seguridad por webhook.
+- Alertas de seguridad por correo transaccional.
 - Política de retención ejecutable.
 - Protección CSRF y limitación de intentos.
 - Bloqueo temporal por múltiples accesos fallidos.
@@ -170,17 +170,27 @@ SESSION_SECRET=una-clave-aleatoria-de-al-menos-64-caracteres
 
 `TRUST_PROXY=1` solamente debe utilizarse cuando la aplicación esté detrás de un proxy inverso controlado. La aplicación debe publicarse mediante HTTPS y con una cuenta MySQL de privilegios mínimos.
 
-## Recuperación de contraseñas
+## Correo transaccional y recuperación de contraseñas
 
-La aplicación envía la solicitud de correo a un webhook HTTPS. Configura:
+La aplicación usa el SDK oficial de Resend detrás de `EmailService`. Configura:
 
 ```env
-PUBLIC_BASE_URL=https://tu-dominio.example
-PASSWORD_RESET_WEBHOOK_URL=https://servicio-de-correo.example/reset
-PASSWORD_RESET_WEBHOOK_SECRET=un-secreto-exclusivo-para-el-webhook
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxx
+EMAIL_FROM=Psicoeducándonos <cuentas@psicoeducandonos.org>
+APP_PUBLIC_URL=https://psicoeducandonos.org
+SECURITY_ALERT_EMAIL=seguridad@psicoeducandonos.org
 ```
 
-El webhook recibe un JSON con `email` y `resetUrl`. En producción, tanto la URL como el secreto son obligatorios. El token nunca se guarda en texto plano en MySQL.
+En producción son obligatorios `RESEND_API_KEY`, `EMAIL_FROM` y
+`APP_PUBLIC_URL`. La URL debe contener exclusivamente el origen HTTPS, sin
+ruta, query, fragmento ni credenciales. Los mensajes incluyen HTML responsive
+y texto plano.
+
+El token conserva el diseño original: 32 bytes aleatorios, SHA-256 en MySQL,
+un solo uso y 30 minutos de vigencia. No se registran el token, el enlace
+completo ni la dirección del destinatario. Las respuestas del endpoint son
+genéricas incluso cuando Resend falla.
 
 ## Pruebas
 
@@ -206,7 +216,7 @@ La landing enlaza al formulario nativo en `/postulacion.html`. Recoge datos de c
 
 Las solicitudes se almacenan en `applications`. Si ya existe una cuenta estudiantil con el mismo correo, queda vinculada automáticamente. Superusuario y administradores pueden filtrar por nombre, correo, estado o camino formativo y asignar los estados pendiente, en revisión, aprobada, lista de espera o rechazada.
 
-Al aprobar una postulación sin cuenta vinculada, el sistema crea la cuenta estudiantil con una credencial aleatoria no utilizable y genera un enlace de establecimiento de contraseña con vigencia de 24 horas. El enlace se entrega mediante el webhook de correo configurado. No se envían contraseñas temporales. Si la cuenta ya existe, la aprobación solamente realiza la vinculación.
+Al aprobar una postulación sin cuenta vinculada, el sistema crea la cuenta estudiantil con una credencial aleatoria no utilizable y genera un enlace de establecimiento de contraseña con vigencia de 24 horas. El enlace se entrega mediante Resend. No se envían contraseñas temporales. Si la cuenta ya existe, la aprobación solamente realiza la vinculación.
 
 Las observaciones son internas y cada revisión registra al usuario responsable en `audit_log`.
 
@@ -280,14 +290,9 @@ Superusuarios y administradores son dirigidos a `/mfa.html` después de validar 
 
 ## Alertas de seguridad
 
-En producción configura:
-
-```env
-SECURITY_ALERT_WEBHOOK_URL=https://seguridad.example/eventos
-SECURITY_ALERT_WEBHOOK_SECRET=un-secreto-independiente
-```
-
-Se generan alertas para accesos privilegiados, códigos MFA fallidos y cambios de rol o estado. Los payloads no incluyen contraseñas, tokens ni secretos MFA.
+Si `SECURITY_ALERT_EMAIL` está configurado, Resend entrega alertas para accesos
+privilegiados, códigos MFA fallidos y cambios de rol o estado. Los mensajes no
+incluyen contraseñas, tokens ni secretos MFA.
 
 ## Retención y privacidad
 
@@ -316,3 +321,33 @@ La ejecución elimina tokens usados o expirados, borra eventos de auditoría ven
 - Pruebas automatizadas.
 - Auditoría de dependencias.
 - Escaneo de patrones de secretos.
+
+## Despliegue en Hostinger
+
+La base de datos se inicializa de forma idempotente antes de cada arranque:
+
+```powershell
+npm run db:init
+```
+
+En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,
+`APP_PUBLIC_URL=https://psicoeducandonos.org` y las credenciales de la base
+MySQL asignada al dominio. `npm start` ejecuta primero la inicialización del
+esquema y después levanta Express.
+
+También son obligatorios la API key de Resend y un remitente perteneciente a
+un dominio verificado. No deben publicarse en Git ni reutilizarse como
+contraseñas.
+
+El despliegue incluye:
+
+- Redirección permanente a HTTPS y al dominio canónico.
+- Encabezados de seguridad mediante Helmet y cookies seguras.
+- `robots.txt`, `sitemap.xml`, enlaces canónicos y páginas de privacidad y
+  términos.
+- DMARC y CAA en DNS. La política DMARC comienza en modo de observación
+  (`p=none`) y debe endurecerse después de revisar los reportes.
+
+Antes de reemplazar el sitio existente y retirar Moodle se debe comprobar
+`/api/health`, el inicio de sesión, la postulación, el envío real de correo y
+una copia de seguridad recuperable.

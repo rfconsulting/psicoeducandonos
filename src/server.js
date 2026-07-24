@@ -31,6 +31,15 @@ app.use((req, res, next) => {
   });
   next();
 });
+app.use((req, res, next) => {
+  if (!env.isProduction || req.path === '/api/health') return next();
+  const canonical = new URL(env.appPublicUrl);
+  const hostname = String(req.hostname || '').toLowerCase();
+  if (!req.secure || hostname !== canonical.hostname) {
+    return res.redirect(308, `${canonical.origin}${req.originalUrl}`);
+  }
+  return next();
+});
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -94,7 +103,17 @@ app.use('/api/learning', require('./routes/learning'));
 app.use('/api/audit-log', require('./routes/audit-log'));
 app.use('/api/applications', require('./routes/applications'));
 app.get('/api/health', async (_req, res, next) => {
-  try { await pool.query('SELECT 1'); res.json({ status: 'ok' }); } catch (error) { next(error); }
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
+  } catch (error) {
+    const knownCodes = new Set(['ER_ACCESS_DENIED_ERROR', 'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST']);
+    res.status(503).json({
+      status: 'degraded',
+      component: 'database',
+      code: knownCodes.has(error.code) ? error.code : 'DATABASE_UNAVAILABLE'
+    });
+  }
 });
 
 app.get(['/dashboard', '/dashboard.html'], requireRole('superuser', 'administrator', 'teacher', 'writer'), (_req, res) => {

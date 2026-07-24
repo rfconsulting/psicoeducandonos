@@ -1,5 +1,4 @@
 const express = require('express');
-const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
 const pool = require('../config/database');
@@ -11,6 +10,12 @@ const withTransaction = require('../services/transaction');
 const mfa = require('../services/mfa');
 const securityAlert = require('../services/security-alert');
 const { ROLES } = require('../constants/access');
+const {
+  PASSWORD_RESET_EXPIRES_MINUTES,
+  generateResetToken,
+  hashResetToken,
+  genericForgotPasswordResponse
+} = require('../services/password-reset-token');
 
 const router = express.Router();
 const DUMMY_HASH = '$2b$12$2b2kYf7n1Thf0Wwq3QxWQO0BRYxRPRYSrxrYrpy0V9HDq4ZgFQYje';
@@ -127,17 +132,17 @@ router.post('/change-password', requireAuth, verifyCsrf, async (req, res, next) 
 });
 
 router.post('/forgot-password', verifyCsrf, async (req, res, next) => {
-  const generic = { message: 'Si la cuenta existe, recibirás instrucciones para restablecer la contraseña.' };
+  const generic = genericForgotPasswordResponse();
   try {
     const email = normalizeEmail(req.body.email);
     const [rows] = await pool.execute("SELECT id,email FROM users WHERE email=? AND status='active' LIMIT 1", [email]);
     if (!rows[0]) return res.json(generic);
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const token = generateResetToken();
+    const tokenHash = hashResetToken(token);
     await pool.execute('UPDATE password_reset_tokens SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL', [rows[0].id]);
     await pool.execute('INSERT INTO password_reset_tokens (user_id,token_hash,expires_at) VALUES (?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 MINUTE))', [rows[0].id, tokenHash]);
     try {
-      const delivered = await deliverPasswordReset(rows[0].email, token);
+      const delivered = await deliverPasswordReset(rows[0].email, token, PASSWORD_RESET_EXPIRES_MINUTES);
       await audit(req, delivered ? 'password_reset_requested' : 'password_reset_delivery_unconfigured', 'user', rows[0].id);
     } catch (deliveryError) {
       await audit(req, 'password_reset_delivery_failed', 'user', rows[0].id);
@@ -150,7 +155,7 @@ router.post('/forgot-password', verifyCsrf, async (req, res, next) => {
 router.post('/reset-password', verifyCsrf, async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
-    const tokenHash = crypto.createHash('sha256').update(String(req.body.token || '')).digest('hex');
+    const tokenHash = hashResetToken(req.body.token || '');
     const newPassword = String(req.body.newPassword || '');
     if (!validPassword(newPassword)) return res.status(422).json({ error: 'La nueva contraseña no cumple la política de seguridad.' });
     await connection.beginTransaction();

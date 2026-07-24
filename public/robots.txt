@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /estudiante.html
+Disallow: /mfa.html
+Disallow: /cambiar-password.html
+Disallow: /restablecer-password.html
+
+Sitemap: https://psicoeducandonos.org/sitemap.xml

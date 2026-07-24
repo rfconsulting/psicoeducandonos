@@ -1,8 +1,3 @@
-CREATE DATABASE IF NOT EXISTS psicoeducandonos
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE psicoeducandonos;
-
 CREATE TABLE IF NOT EXISTS user_sessions (
   session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
   expires INT UNSIGNED NOT NULL,
