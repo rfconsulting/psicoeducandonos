@@ -9,6 +9,7 @@ const { pagination, page } = require('../utils/pagination');
 const securityAlert = require('../services/security-alert');
 const { validPassword } = require('../validation/auth');
 const { supportPayload, progressPercentage } = require('../validation/tracking');
+const { canAccessStudentTracking, listEnrollmentCandidates } = require('../services/tracking-access');
 
 const router = express.Router();
 const ROLES = ['administrator', 'writer', 'teacher', 'student'];
@@ -79,9 +80,7 @@ router.get('/students/tracking', requireCapability(CAPABILITIES.STUDENT_TRACK), 
        ORDER BY u.full_name LIMIT 200`,
       canManageAll ? values : [req.authUser.id, ...values]
     );
-    const [enrollmentCandidates] = await pool.execute(
-      "SELECT id,full_name AS fullName,email,status FROM users WHERE role='student' ORDER BY full_name LIMIT 500"
-    );
+    const enrollmentCandidates = await listEnrollmentCandidates(pool, req.authUser);
     return res.json({ students, courses, enrollmentCandidates });
   } catch (error) { next(error); }
 });
@@ -187,8 +186,8 @@ router.patch('/students/:id/tracking', requireCapability(CAPABILITIES.STUDENT_TR
     const stage = String(req.body.stage || '');
     const notes = String(req.body.notes || '').trim().slice(0, 5000);
     if (!Number.isSafeInteger(studentId) || studentId < 1 || !Number.isInteger(progress) || progress < 0 || progress > 100 || !['not_started','in_progress','completed','paused'].includes(stage)) return res.status(422).json({ error: 'Datos de seguimiento inválidos.' });
-    const [student] = await pool.execute("SELECT id FROM users WHERE id=? AND role='student' LIMIT 1", [studentId]);
-    if (!student.length) return res.status(404).json({ error: 'Estudiante no encontrado.' });
+    const accessible = await canAccessStudentTracking(pool, req.authUser, studentId);
+    if (!accessible) return res.status(404).json({ error: 'Seguimiento no disponible.' });
     await withTransaction(async (connection) => {
       await connection.execute(
         `INSERT INTO student_tracking (student_id,updated_by,progress,stage,notes) VALUES (?,?,?,?,?)

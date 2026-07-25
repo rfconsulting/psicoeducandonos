@@ -23,6 +23,13 @@ function rejectSession(req, res, message = 'Tu sesión ya no es válida. Inicia 
   });
 }
 
+function isSessionUserCurrent(sessionUser, user) {
+  return Boolean(user)
+    && user.status === 'active'
+    && Number(sessionUser?.authVersion) === Number(user.auth_version)
+    && sessionUser?.role === user.role;
+}
+
 async function validateSession(req, res, next, allowedRoles = null) {
   try {
     const sessionUser = req.session?.user;
@@ -33,10 +40,7 @@ async function validateSession(req, res, next, allowedRoles = null) {
       [sessionUser.id]
     );
     const user = rows[0];
-    const stale = !user
-      || user.status !== 'active'
-      || Number(sessionUser.authVersion) !== Number(user.auth_version)
-      || sessionUser.role !== user.role;
+    const stale = !isSessionUserCurrent(sessionUser, user);
 
     if (stale) return rejectSession(req, res);
     const requestPath = req.originalUrl.split('?')[0];
@@ -96,5 +100,5 @@ function verifyCsrf(req, res, next) {
 
 module.exports = {
   requireAuth, requireRole, requireCapability, issueCsrfToken, verifyCsrf,
-  isPasswordChangeRoute, isMfaBootstrapRoute
+  isPasswordChangeRoute, isMfaBootstrapRoute, isSessionUserCurrent
 };
