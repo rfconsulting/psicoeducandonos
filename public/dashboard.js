@@ -20,6 +20,7 @@ const activityNames={
   mfa_verified:'Verificación MFA completada',
   mfa_challenge_limited:'Desafío MFA limitado temporalmente',
   application_submitted:'Postulación recibida',application_reviewed:'Postulación revisada',
+  application_duplicate_ignored:'Postulación repetida ignorada',
   student_account_created_from_application:'Cuenta estudiantil creada desde postulación'
 };
 

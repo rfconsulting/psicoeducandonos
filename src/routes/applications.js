@@ -10,6 +10,10 @@ const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
 const deliverPasswordReset = require('../services/password-reset');
 const {
+  publicApplicationResult,
+  waitForEquivalentPublicResponse
+} = require('../services/public-application-response');
+const {
   STUDENT_SETUP_EXPIRES_MINUTES,
   generateResetToken,
   hashResetToken
@@ -23,6 +27,7 @@ const STATUSES = new Set(['pending', 'reviewing', 'approved', 'waitlisted', 'rej
 const optionalText = (value, max) => String(value || '').trim().slice(0, max) || null;
 
 router.post('/', verifyCsrf, async (req, res, next) => {
+  const startedAt = Date.now();
   try {
     const fullName = cleanName(req.body.fullName).slice(0, 120);
     const email = normalizeEmail(req.body.email);
@@ -48,10 +53,15 @@ router.post('/', verifyCsrf, async (req, res, next) => {
       "SELECT id FROM applications WHERE email=? AND status IN ('pending','reviewing','approved','waitlisted') LIMIT 1",
       [email]
     );
-    if (duplicates.length) return res.status(409).json({ error: 'Ya existe una postulación activa con este correo.' });
+    if (duplicates.length) {
+      await audit(req, 'application_duplicate_ignored', 'application', duplicates[0].id);
+      await waitForEquivalentPublicResponse(startedAt);
+      const result = publicApplicationResult();
+      return res.status(result.status).json(result.body);
+    }
     const [users] = await pool.execute("SELECT id FROM users WHERE email=? AND role='student' LIMIT 1", [email]);
 
-    const id = await withTransaction(async connection => {
+    await withTransaction(async connection => {
       const [result] = await connection.execute(
         `INSERT INTO applications
          (user_id,full_name,email,phone,age_range,location,pathway,crisis_experience,motivation,
@@ -63,9 +73,10 @@ router.post('/', verifyCsrf, async (req, res, next) => {
           attendedInfoSession, sessionFeedback]
       );
       await audit(req, 'application_submitted', 'application', result.insertId, { pathway }, { db: connection, required: true });
-      return result.insertId;
     });
-    return res.status(201).json({ message: 'Postulación recibida correctamente.', id });
+    await waitForEquivalentPublicResponse(startedAt);
+    const result = publicApplicationResult();
+    return res.status(result.status).json(result.body);
   } catch (error) {
     return next(error);
   }
