@@ -377,12 +377,15 @@ También son obligatorios la API key de Resend y un remitente perteneciente a
 un dominio verificado. No deben publicarse en Git ni reutilizarse como
 contraseñas.
 
-El script `scripts/build-hostinger-archive.js` prepara un directorio temporal
-con los archivos necesarios y la configuración productiva. Toma `DB_NAME` y
-`DB_USER` del `.env` vigente; no contiene nombres de base fijados en el código.
-El archivo resultante debe subirse por el canal autenticado de Hostinger,
-solicitar su eliminación después de extraerlo y eliminar inmediatamente toda
-copia temporal local. Nunca se añade a Git.
+El comando `npm run build:hostinger` prepara en `artifacts/` un directorio con
+el código estrictamente necesario, comprueba que no contenga secretos y elimina
+siempre su área temporal. El artefacto no incluye `.env`, credenciales de
+bootstrap ni scripts administrativos. Configura todas las variables de
+producción externamente en Hostinger.
+
+Comprime únicamente el contenido del directorio validado, súbelo por el canal
+autenticado de Hostinger y elimina la copia remota después de extraerla. La
+carpeta `artifacts/` está excluida de Git.
 
 Validación previa:
 

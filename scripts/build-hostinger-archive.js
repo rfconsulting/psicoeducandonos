@@ -1,49 +1,123 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-require('dotenv').config({ quiet: true });
 
-const projectRoot = path.resolve(__dirname, '..');
-const stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'psicoeducandonos-hostinger-'));
-const include = ['package.json', 'package-lock.json', 'public', 'src', 'scripts', 'database'];
+const INCLUDED_ENTRIES = ['package.json', 'package-lock.json', 'public', 'src', 'scripts', 'database'];
+const PRODUCTION_SCRIPTS = new Set([
+  'init-database.js',
+  'migrate-p0.js',
+  'migrate-p1.js',
+  'migrate-p2.js',
+  'migrate-p3.js',
+  'migrate-p4.js',
+  'migrate-p5.js',
+  'migrate-p6.js',
+  'retention.js'
+]);
+const SECRET_ENV_KEYS = [
+  'DB_PASSWORD',
+  'SESSION_SECRET',
+  'RESEND_API_KEY',
+  'MFA_ENCRYPTION_KEY',
+  'SUPERUSER_PASSWORD'
+];
 
-for (const entry of include) {
-  fs.cpSync(path.join(projectRoot, entry), path.join(stagingRoot, entry), {
-    recursive: true,
-    filter: source => !/node_modules|\.log$|\.zip$/i.test(source)
-  });
+function secretValues(environment = process.env) {
+  return SECRET_ENV_KEYS
+    .map(key => String(environment[key] || ''))
+    .filter(value => value.length >= 8);
 }
 
-const overrides = {
-  NODE_ENV: 'production',
-  PORT: process.env.PORT || '3000',
-  TRUST_PROXY: '1',
-  DB_HOST: 'localhost',
-  DB_PORT: process.env.DB_PORT || '3306',
-  DB_NAME: process.env.DB_NAME,
-  DB_USER: process.env.DB_USER,
-  DB_PASSWORD: process.env.DB_PASSWORD,
-  DB_CONNECTION_LIMIT: process.env.DB_CONNECTION_LIMIT || '10',
-  SESSION_SECRET: process.env.SESSION_SECRET,
-  EMAIL_PROVIDER: 'resend',
-  RESEND_API_KEY: process.env.RESEND_API_KEY,
-  EMAIL_FROM: process.env.EMAIL_FROM,
-  APP_PUBLIC_URL: 'https://psicoeducandonos.org',
-  SECURITY_ALERT_EMAIL: process.env.SECURITY_ALERT_EMAIL || '',
-  MFA_ENCRYPTION_KEY: process.env.MFA_ENCRYPTION_KEY,
-  DATA_RETENTION_DAYS: process.env.DATA_RETENTION_DAYS || '730',
-  SUPERUSER_NAME: process.env.SUPERUSER_NAME,
-  SUPERUSER_EMAIL: process.env.SUPERUSER_EMAIL,
-  SUPERUSER_PASSWORD: process.env.SUPERUSER_PASSWORD
-};
+function filesUnder(root) {
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const target = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...filesUnder(target));
+    else if (entry.isFile()) files.push(target);
+  }
+  return files;
+}
 
-const missing = Object.entries(overrides)
-  .filter(([key, value]) => !value && !['SECURITY_ALERT_EMAIL'].includes(key))
-  .map(([key]) => key);
-if (missing.length) throw new Error(`Faltan variables para el artefacto: ${missing.join(', ')}`);
+function assertArtifactSafe(root, knownSecretValues = secretValues()) {
+  const findings = [];
+  for (const file of filesUnder(root)) {
+    const relative = path.relative(root, file);
+    const baseName = path.basename(file).toLowerCase();
+    if (baseName === '.env' || baseName.startsWith('.env.')) {
+      findings.push(`${relative}: archivo de entorno no autorizado`);
+      continue;
+    }
+    if (/\.(png|jpe?g|gif|ico)$/i.test(baseName)) continue;
+    const content = fs.readFileSync(file, 'utf8');
+    if (/SUPERUSER_PASSWORD/.test(content)) findings.push(`${relative}: credencial de bootstrap`);
+    if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(content)) findings.push(`${relative}: clave privada`);
+    if (knownSecretValues.some(value => content.includes(value))) findings.push(`${relative}: valor secreto conocido`);
+  }
+  if (findings.length) {
+    throw new Error(`El artefacto contiene material sensible (${findings.length} hallazgo(s); valores omitidos).`);
+  }
+}
 
-const envFile = Object.entries(overrides)
-  .map(([key, value]) => `${key}=${JSON.stringify(String(value))}`)
-  .join('\n');
-fs.writeFileSync(path.join(stagingRoot, '.env'), `${envFile}\n`, { mode: 0o600 });
-console.log(stagingRoot);
+function productionPackage(sourcePackage) {
+  const allowedScripts = [
+    'start', 'db:init', 'migrate:p0', 'migrate:p1', 'migrate:p2', 'migrate:p3',
+    'migrate:p4', 'migrate:p5', 'migrate:p6', 'retention:dry', 'retention:run'
+  ];
+  return {
+    ...sourcePackage,
+    scripts: Object.fromEntries(
+      allowedScripts
+        .filter(name => sourcePackage.scripts?.[name])
+        .map(name => [name, sourcePackage.scripts[name]])
+    )
+  };
+}
+
+function buildHostingerArtifact({
+  sourceRoot = path.resolve(__dirname, '..'),
+  destinationRoot = path.join(sourceRoot, 'artifacts'),
+  temporaryParent = os.tmpdir(),
+  environment = process.env
+} = {}) {
+  const stagingRoot = fs.mkdtempSync(path.join(temporaryParent, 'psicoeducandonos-hostinger-'));
+  fs.mkdirSync(destinationRoot, { recursive: true });
+  const finalRoot = path.join(destinationRoot, `hostinger-${Date.now()}`);
+  try {
+    fs.mkdirSync(finalRoot, { recursive: false });
+    for (const entry of INCLUDED_ENTRIES) {
+      fs.cpSync(path.join(sourceRoot, entry), path.join(stagingRoot, entry), {
+        recursive: true,
+        filter: source => {
+          if (/node_modules|\.log$|\.zip$/i.test(source)) return false;
+          if (path.basename(path.dirname(source)) === 'scripts' && !PRODUCTION_SCRIPTS.has(path.basename(source))) return false;
+          return true;
+        }
+      });
+    }
+    const packagePath = path.join(stagingRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    fs.writeFileSync(packagePath, `${JSON.stringify(productionPackage(packageJson), null, 2)}\n`);
+    assertArtifactSafe(stagingRoot, secretValues(environment));
+    fs.cpSync(stagingRoot, finalRoot, { recursive: true });
+    assertArtifactSafe(finalRoot, secretValues(environment));
+    return finalRoot;
+  } catch (error) {
+    fs.rmSync(finalRoot, { recursive: true, force: true });
+    throw error;
+  } finally {
+    fs.rmSync(stagingRoot, { recursive: true, force: true });
+  }
+}
+
+if (require.main === module) {
+  try {
+    const artifact = buildHostingerArtifact();
+    console.log(`Artefacto seguro creado en: ${artifact}`);
+    console.log('Configura las variables de producción externamente; el artefacto no contiene .env.');
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}
+
+module.exports = { assertArtifactSafe, buildHostingerArtifact, productionPackage, secretValues };

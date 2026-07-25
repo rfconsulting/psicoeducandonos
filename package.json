@@ -20,6 +20,7 @@
     "test": "node --test",
     "lint": "node scripts/check-js.js",
     "check:secrets": "node scripts/check-secrets.js",
+    "build:hostinger": "node scripts/build-hostinger-archive.js",
     "retention:dry": "node scripts/retention.js",
     "retention:run": "node scripts/retention.js --execute",
     "check": "node --check src/server.js"
