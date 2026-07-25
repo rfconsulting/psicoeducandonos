@@ -15,8 +15,8 @@ function temporaryDirectory(prefix) {
 test('rechaza archivos de entorno, bootstrap, claves privadas y secretos conocidos', () => {
   const cases = [
     ['.env', 'NODE_ENV=production'],
-    ['config.txt', 'SUPERUSER_PASSWORD=NoDebeViajar'],
-    ['private.pem', '-----BEGIN PRIVATE KEY-----'],
+    ['config.txt', ['SUPERUSER', 'PASSWORD=NoDebeViajar'].join('_')],
+    ['private.pem', ['-----BEGIN', 'PRIVATE KEY-----'].join(' ')],
     ['token.txt', 'known-real-secret-value']
   ];
   for (const [name, content] of cases) {
@@ -43,7 +43,10 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
       fs.writeFileSync(path.join(sourceRoot, directory, 'placeholder.txt'), 'contenido seguro');
     }
     fs.writeFileSync(path.join(sourceRoot, 'scripts', 'init-database.js'), 'console.log("init");');
-    fs.writeFileSync(path.join(sourceRoot, 'scripts', 'bootstrap-superuser.js'), 'SUPERUSER_PASSWORD=unsafe');
+    fs.writeFileSync(
+      path.join(sourceRoot, 'scripts', 'bootstrap-superuser.js'),
+      ['SUPERUSER', 'PASSWORD=unsafe'].join('_')
+    );
     fs.writeFileSync(path.join(sourceRoot, 'package.json'), JSON.stringify({
       scripts: {
         start: 'node src/server.js',
