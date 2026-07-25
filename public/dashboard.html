@@ -41,67 +41,110 @@
         <h2>Diplomado en Acompañamiento</h2>
         <p>Selecciona una sección del menú para administrar los recursos correspondientes a tu rol.</p>
       </div>
+      <section class="dashboard-statistics" id="dashboard-statistics" hidden aria-labelledby="statistics-title">
+        <div class="statistics-heading">
+          <div><span>Resumen general</span><h2 id="statistics-title">Indicadores de la plataforma</h2></div>
+          <p>Datos actualizados al abrir el panel.</p>
+        </div>
+        <div class="statistics-grid" id="statistics-grid"></div>
+        <div class="course-statistics">
+          <div class="course-statistics-heading"><h3>Estudiantes inscritos por curso</h3><span>Activos y completados</span></div>
+          <div class="course-statistics-list" id="course-statistics-list"></div>
+        </div>
+        <p class="form-message" id="statistics-message" role="alert"></p>
+      </section>
     </section>
 
     <section class="content-section dashboard-panel" id="blog-section" hidden>
       <div class="content-heading"><div><span>Blog</span><h2>Artículos</h2></div><p>Contenido educativo de la comunidad.</p></div>
-      <form class="editor-form" id="article-form" hidden>
-        <h3>Nuevo artículo</h3>
-        <div class="field"><label for="article-title">Título</label><input id="article-title" name="title" maxlength="180" required></div>
-        <div class="field"><label for="article-summary">Resumen</label><textarea id="article-summary" name="summary" maxlength="320" required></textarea></div>
-        <div class="field"><label for="article-body">Contenido</label><textarea id="article-body" name="body" rows="8" maxlength="50000" required></textarea></div>
-        <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar artículo</button></div>
-        <p class="form-message" role="alert"></p>
-      </form>
-      <div class="content-list" id="articles-list"></div>
+      <div class="blog-workspace">
+        <div class="blog-editor">
+          <form class="editor-form" id="article-form" hidden>
+            <h3>Nuevo artículo</h3>
+            <div class="field"><label for="article-title">Título</label><input id="article-title" name="title" maxlength="180" required></div>
+            <div class="field"><label for="article-summary">Resumen</label><textarea id="article-summary" name="summary" maxlength="320" required></textarea></div>
+            <div class="field"><label for="article-body">Contenido</label><textarea id="article-body" name="body" rows="8" maxlength="50000" required></textarea></div>
+            <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar artículo</button></div>
+            <p class="form-message" role="alert"></p>
+          </form>
+        </div>
+        <aside class="article-catalog" aria-labelledby="article-catalog-title">
+          <div class="article-catalog-heading"><span>Más recientes</span><h3 id="article-catalog-title">Artículos creados</h3></div>
+          <div class="content-list" id="articles-list"></div>
+        </aside>
+      </div>
     </section>
 
     <section class="content-section dashboard-panel" id="courses-section" hidden>
       <div class="content-heading"><div><span>Formación</span><h2>Cursos</h2></div><p>Oferta formativa disponible.</p></div>
-      <form class="editor-form" id="course-form" hidden>
-        <h3>Nuevo curso</h3>
-        <div class="field"><label for="course-title">Título</label><input id="course-title" name="title" maxlength="180" required></div>
-        <div class="field"><label for="course-description">Descripción</label><textarea id="course-description" name="description" rows="6" maxlength="10000" required></textarea></div>
-        <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar curso</button></div>
-        <p class="form-message" role="alert"></p>
-      </form>
-      <div class="course-builder" id="course-builder" hidden>
-        <form class="editor-form" id="module-form">
-          <h3>Añadir módulo</h3>
-          <div class="form-grid">
-            <div class="field"><label>Curso</label><select name="courseId" class="course-selector" required></select></div>
-            <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
+      <div class="formation-workspace">
+        <div class="formation-editor">
+          <form class="editor-form" id="course-form" hidden>
+            <h3>Nuevo curso</h3>
+            <div class="field"><label for="course-title">Título</label><input id="course-title" name="title" maxlength="180" required></div>
+            <div class="field"><label for="course-description">Descripción</label><textarea id="course-description" name="description" rows="6" maxlength="10000" required></textarea></div>
+            <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar curso</button></div>
+            <p class="form-message" role="alert"></p>
+          </form>
+          <div class="course-builder" id="course-builder" hidden>
+            <form class="editor-form" id="module-form">
+              <h3>Añadir módulo</h3>
+              <div class="form-grid">
+                <div class="field"><label>Curso</label><select name="courseId" class="course-selector" required></select></div>
+                <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
+              </div>
+              <div class="field"><label>Título del módulo</label><input name="title" maxlength="180" required></div>
+              <button class="submit-button compact-button" type="submit">Crear módulo</button><p class="form-message"></p>
+            </form>
+            <form class="editor-form" id="lesson-form">
+              <h3>Añadir lección</h3>
+              <div class="form-grid">
+                <div class="field"><label>ID del módulo</label><input name="moduleId" type="number" min="1" required></div>
+                <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
+              </div>
+              <div class="field"><label>Título</label><input name="title" maxlength="180" required></div>
+              <div class="field"><label>Breve descripción</label><textarea name="content" rows="7" maxlength="50000" required></textarea></div>
+              <div class="field"><label>Duración estimada en minutos</label><input name="estimatedMinutes" type="number" min="1" max="1440"></div>
+              <div class="field"><label>Video de YouTube</label><input name="videoUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=..." required></div>
+              <div class="field"><label>PDF de la lección en Google Drive</label><input name="pdfUrl" type="url" maxlength="500" placeholder="https://drive.google.com/..." required></div>
+              <div class="field"><label>Diapositivas en Google Drive <span class="optional-label">(opcional)</span></label><input name="slidesUrl" type="url" maxlength="500" placeholder="https://drive.google.com/..."></div>
+              <div class="lesson-questions-builder" id="lesson-questions-builder"></div>
+              <button class="submit-button compact-button" type="submit">Crear lección</button><p class="form-message"></p>
+            </form>
           </div>
-          <div class="field"><label>Título del módulo</label><input name="title" maxlength="180" required></div>
-          <button class="submit-button compact-button" type="submit">Crear módulo</button><p class="form-message"></p>
-        </form>
-        <form class="editor-form" id="lesson-form">
-          <h3>Añadir lección</h3>
-          <div class="form-grid">
-            <div class="field"><label>ID del módulo</label><input name="moduleId" type="number" min="1" required></div>
-            <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
-          </div>
-          <div class="field"><label>Título</label><input name="title" maxlength="180" required></div>
-          <div class="field"><label>Contenido</label><textarea name="content" rows="7" maxlength="50000" required></textarea></div>
-          <div class="field"><label>Duración estimada en minutos</label><input name="estimatedMinutes" type="number" min="1" max="1440"></div>
-          <button class="submit-button compact-button" type="submit">Crear lección</button><p class="form-message"></p>
-        </form>
-        <form class="editor-form" id="enrollment-form">
-          <h3>Inscribir estudiante</h3>
-          <div class="form-grid">
-            <div class="field"><label>Curso</label><select name="courseId" class="course-selector" required></select></div>
-            <div class="field"><label>Estudiante</label><select name="studentId" id="enrollment-student" required></select></div>
-          </div>
-          <button class="submit-button compact-button" type="submit">Inscribir</button><p class="form-message"></p>
-        </form>
+        </div>
+        <aside class="course-catalog" aria-labelledby="course-catalog-title">
+          <div class="course-catalog-heading"><span>Catálogo</span><h3 id="course-catalog-title">Cursos creados</h3></div>
+          <div class="content-list" id="courses-list"></div>
+        </aside>
       </div>
-      <div class="content-list" id="courses-list"></div>
     </section>
 
     <section class="content-section dashboard-panel" id="tracking-section" hidden>
-      <div class="content-heading"><div><span>Formación</span><h2>Seguimiento a estudiantes</h2></div><p>Progreso, etapa y observaciones.</p></div>
+      <div class="content-heading"><div><span>Formación</span><h2>Seguimiento a estudiantes</h2></div><p>Expediente, progreso y acompañamiento por curso.</p></div>
+      <form class="editor-form tracking-enrollment" id="enrollment-form">
+        <h3>Inscribir estudiante</h3>
+        <p class="enrollment-help">Asigna un estudiante a uno de los cursos disponibles para iniciar su seguimiento académico.</p>
+        <div class="form-grid">
+          <div class="field"><label>Curso</label><select name="courseId" class="course-selector" required></select></div>
+          <div class="field"><label>Estudiante</label><select name="studentId" id="enrollment-student" required></select></div>
+        </div>
+        <button class="submit-button compact-button" type="submit">Inscribir</button><p class="form-message"></p>
+      </form>
       <p class="form-message" id="tracking-message" role="alert"></p>
-      <div class="tracking-grid" id="tracking-list"></div>
+      <div class="tracking-workspace">
+        <aside class="tracking-directory">
+          <form id="tracking-filters" class="tracking-filters" role="search">
+            <div class="field"><label for="tracking-search">Buscar estudiante</label><input id="tracking-search" name="search" type="search" maxlength="120" placeholder="Nombre o correo"></div>
+            <div class="field"><label for="tracking-course">Curso inscrito</label><select id="tracking-course" name="courseId"><option value="">Todos los cursos</option></select></div>
+            <button class="small-button" type="submit">Buscar</button>
+          </form>
+          <div class="tracking-list" id="tracking-list" aria-live="polite"></div>
+        </aside>
+        <section class="student-record" id="student-record" aria-live="polite">
+          <div class="tracking-empty"><h3>Selecciona un estudiante</h3><p>Aquí se mostrará su ficha, récord académico y acompañamiento por curso.</p></div>
+        </section>
+      </div>
     </section>
 
     <section class="admin-section dashboard-panel" id="admin-section" hidden>
@@ -138,7 +181,7 @@
       <div class="content-heading"><div><span>Admisiones</span><h2>Postulaciones</h2></div><p>Revisa las solicitudes de ingreso al diplomado.</p></div>
       <form class="application-filters" id="application-filters">
         <div class="field"><label>Buscar</label><input name="search" maxlength="120" placeholder="Nombre o correo"></div>
-        <div class="field"><label>Estado</label><select name="status"><option value="">Todos</option><option value="pending">Pendiente</option><option value="reviewing">En revisión</option><option value="approved">Aprobada</option><option value="waitlisted">Lista de espera</option><option value="rejected">Rechazada</option></select></div>
+        <div class="field"><label>Estado</label><select name="status"><option value="pending" selected>Pendiente</option><option value="reviewing">En revisión</option><option value="approved">Aprobada</option><option value="waitlisted">Lista de espera</option><option value="rejected">Rechazada</option><option value="">Todos los estados</option></select></div>
         <div class="field"><label>Camino</label><select name="pathway"><option value="">Todos</option><option value="accompaniment">Acompañamiento</option><option value="health-professional">Profesional de salud</option></select></div>
         <div class="application-filter-actions"><button class="small-button" type="submit">Filtrar</button><button class="small-button secondary-button" id="applications-clear" type="button">Limpiar</button></div>
       </form>
@@ -160,7 +203,7 @@
           <option value="user_created">Usuario creado</option><option value="user_role_changed">Rol actualizado</option>
           <option value="user_status_changed">Estado actualizado</option><option value="user_password_reset_by_superuser">Contraseña restablecida por superusuario</option><option value="article_created">Artículo creado</option>
           <option value="course_created">Curso creado</option><option value="course_module_created">Módulo creado</option><option value="lesson_created">Lección creada</option><option value="student_enrolled">Estudiante inscrito</option>
-          <option value="student_tracking_updated">Seguimiento actualizado</option><option value="lesson_progress_updated">Progreso actualizado</option>
+          <option value="student_tracking_updated">Seguimiento actualizado</option><option value="enrollment_support_updated">Acompañamiento de matrícula actualizado</option><option value="lesson_progress_updated">Progreso actualizado</option>
           <option value="password_changed">Contraseña actualizada</option><option value="password_reset_requested">Recuperación solicitada</option><option value="password_reset_delivery_unconfigured">Recuperación sin proveedor de correo</option><option value="password_reset_delivery_failed">Fallo al entregar recuperación</option><option value="password_reset_completed">Contraseña restablecida</option>
           <option value="mfa_verified">MFA completado</option>
           <option value="application_submitted">Postulación recibida</option><option value="application_reviewed">Postulación revisada</option>

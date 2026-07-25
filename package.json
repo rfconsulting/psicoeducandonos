@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "prestart": "node scripts/init-database.js && node scripts/bootstrap-superuser.js",
+    "prestart": "node scripts/init-database.js && node scripts/migrate-p5.js && node scripts/migrate-p6.js && node scripts/bootstrap-superuser.js",
     "start": "node src/server.js",
     "db:init": "node scripts/init-database.js",
     "create-superuser": "node scripts/create-superuser.js",
@@ -15,6 +15,8 @@
     "migrate:p2": "node scripts/migrate-p2.js",
     "migrate:p3": "node scripts/migrate-p3.js",
     "migrate:p4": "node scripts/migrate-p4.js",
+    "migrate:p5": "node scripts/migrate-p5.js",
+    "migrate:p6": "node scripts/migrate-p6.js",
     "test": "node --test",
     "lint": "node scripts/check-js.js",
     "check:secrets": "node scripts/check-secrets.js",

@@ -50,6 +50,7 @@ app.use(helmet({
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
+      frameSrc: ["'self'", 'https://www.youtube-nocookie.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: env.isProduction ? [] : null
@@ -102,6 +103,7 @@ app.use('/api/content', require('./routes/content'));
 app.use('/api/learning', require('./routes/learning'));
 app.use('/api/audit-log', require('./routes/audit-log'));
 app.use('/api/applications', require('./routes/applications'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 app.get('/api/health', async (_req, res, next) => {
   try {
     await pool.query('SELECT 1');

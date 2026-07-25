@@ -13,6 +13,7 @@ const activityNames={
   article_created:'Artículo creado',course_created:'Curso creado',
   course_module_created:'Módulo creado',lesson_created:'Lección creada',
   student_enrolled:'Estudiante inscrito',student_tracking_updated:'Seguimiento actualizado',
+  enrollment_support_updated:'Acompañamiento de matrícula actualizado',
   lesson_progress_updated:'Progreso de lección actualizado',password_changed:'Contraseña actualizada',
   password_reset_requested:'Recuperación solicitada',password_reset_delivery_unconfigured:'Recuperación sin proveedor de correo',
   password_reset_delivery_failed:'Fallo al entregar recuperación',password_reset_completed:'Contraseña restablecida',
@@ -42,9 +43,19 @@ async function request(url,options={}){
 function renderItems(containerId,items,type){
   const container=document.querySelector(containerId);container.textContent='';
   if(!items.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent=type==='article'?'Todavía no hay artículos disponibles.':'Todavía no hay cursos disponibles.';container.appendChild(empty);return;}
-  items.forEach(item=>{const card=document.createElement('article');card.className='content-card';const eyebrow=document.createElement('span');eyebrow.textContent=`${item.status==='published'?'Publicado':'Borrador'} · ${type==='article'?item.author:item.creator}`;const title=document.createElement('h3');title.textContent=item.title;const copy=document.createElement('p');copy.textContent=type==='article'?item.summary:item.description;card.append(eyebrow,title,copy);if(type==='article'){const link=document.createElement('a');link.className='content-link';link.href=`/articulo.html?slug=${encodeURIComponent(item.slug)}`;link.textContent='Leer artículo →';card.appendChild(link);}container.appendChild(card);});
+  items.forEach(item=>{const card=document.createElement('article');card.className='content-card';const eyebrow=document.createElement('span');const created=type==='article'&&item.createdAt?` · ${new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(item.createdAt))}`:'';eyebrow.textContent=`${item.status==='published'?'Publicado':'Borrador'} · ${type==='article'?item.author:item.creator}${created}`;const title=document.createElement('h3');title.textContent=item.title;const copy=document.createElement('p');copy.textContent=type==='article'?item.summary:item.description;card.append(eyebrow,title,copy);if(type==='article'){const link=document.createElement('a');link.className='content-link';link.href=`/articulo.html?slug=${encodeURIComponent(item.slug)}`;link.textContent='Leer artículo →';card.appendChild(link);}container.appendChild(card);});
 }
 async function loadContent(){const [{articles},{courses}]=await Promise.all([request('/api/content/articles'),request('/api/content/courses')]);renderItems('#articles-list',articles,'article');renderItems('#courses-list',courses,'course');document.querySelectorAll('.course-selector').forEach(select=>{select.textContent='';courses.filter(course=>['superuser','administrator'].includes(currentUser.role)||course.creatorId===currentUser.id).forEach(course=>{const option=document.createElement('option');option.value=course.id;option.textContent=course.title;select.appendChild(option);});});}
+
+async function loadDashboardStatistics(){
+  const section=document.querySelector('#dashboard-statistics');const grid=document.querySelector('#statistics-grid');const coursesList=document.querySelector('#course-statistics-list');const message=document.querySelector('#statistics-message');section.hidden=false;grid.textContent='';coursesList.textContent='';message.textContent='';
+  try{
+    const {totals,courses}=await request('/api/dashboard/statistics');
+    [['Estudiantes inscritos',totals.enrolledStudents],['Postulaciones pendientes',totals.pendingApplications],['Cursos creados',totals.coursesCreated],['Artículos creados',totals.articlesCreated],['Profesores',totals.teachers],['Escritores',totals.writers]].forEach(([label,value])=>{const card=document.createElement('article');card.className='statistic-card';const name=document.createElement('span');name.textContent=label;const count=document.createElement('strong');count.textContent=Number(value)||0;card.append(name,count);grid.appendChild(card);});
+    if(!courses.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay cursos creados.';coursesList.appendChild(empty);}
+    courses.forEach(course=>{const row=document.createElement('div');row.className='course-statistic-row';const identity=document.createElement('div');const title=document.createElement('strong');title.textContent=course.title;const status=document.createElement('small');status.textContent=course.status==='published'?'Publicado':'Borrador';identity.append(title,status);const count=document.createElement('span');count.textContent=Number(course.enrolledStudents)||0;count.setAttribute('aria-label',`${count.textContent} estudiantes inscritos`);row.append(identity,count);coursesList.appendChild(row);});
+  }catch(error){message.className='form-message error';message.textContent=error.message;}
+}
 
 function bindEditor(formId,url){
   const form=document.querySelector(formId);
@@ -109,8 +120,8 @@ function applicationCard(application){
   form.addEventListener('submit',saveApplicationReview);return form;
 }
 async function saveApplicationReview(event){
-  event.preventDefault();const form=event.currentTarget;const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');button.disabled=true;
-  try{const data=await request(`/api/applications/${form.dataset.applicationId}/review`,{method:'PATCH',body:JSON.stringify(Object.fromEntries(new FormData(form)))});message.className='form-message success';message.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}
+  event.preventDefault();const form=event.currentTarget;const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));button.disabled=true;
+  try{const data=await request(`/api/applications/${form.dataset.applicationId}/review`,{method:'PATCH',body:JSON.stringify(values)});await loadApplications(true);const globalMessage=document.querySelector('#applications-message');globalMessage.className='form-message success';globalMessage.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}
 }
 async function updateUser(id,field,value){const message=document.querySelector('#admin-message');try{await request(`/api/users/${id}/${field}`,{method:'PATCH',body:JSON.stringify({[field]:value})});message.className='form-message success';message.textContent='Usuario actualizado.';await loadUsers();}catch(error){message.className='form-message error';message.textContent=error.message;}}
 
@@ -136,27 +147,73 @@ function setupPasswordReset(){
   });
 }
 
+let selectedTrackingStudentId=null;
+function addFact(container,label,value){if(value===null||value===undefined||value==='')return;const fact=document.createElement('div');fact.className='profile-fact';const name=document.createElement('strong');name.textContent=label;const content=document.createElement('span');content.textContent=value;fact.append(name,content);container.appendChild(fact);}
+function displayDate(value){return value?new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(value)):'Sin registro';}
 async function loadTracking(){
-  const {students}=await request('/api/users/students/tracking');const list=document.querySelector('#tracking-list');list.textContent='';
-  const enrollmentSelect=document.querySelector('#enrollment-student');if(enrollmentSelect){enrollmentSelect.textContent='';students.filter(student=>student.status==='active').forEach(student=>{const option=document.createElement('option');option.value=student.id;option.textContent=`${student.fullName} · ${student.email}`;enrollmentSelect.appendChild(option);});}
-  if(!students.length){list.textContent='Todavía no hay estudiantes registrados.';return;}
-  students.forEach(student=>{const card=document.createElement('form');card.className='tracking-card';card.dataset.studentId=student.id;card.innerHTML=`<div class="tracking-person"><strong></strong><span></span><small>${student.status==='active'?'Activo':'Inactivo'}</small></div><label>Etapa<select name="stage"><option value="not_started">Sin iniciar</option><option value="in_progress">En curso</option><option value="completed">Completado</option><option value="paused">Pausado</option></select></label><label>Progreso<input name="progress" type="number" min="0" max="100" value="${student.progress}"></label><label class="tracking-notes">Observaciones<textarea name="notes" maxlength="5000"></textarea></label><button class="small-button" type="submit">Guardar seguimiento</button>`;
-    card.querySelector('.tracking-person strong').textContent=student.fullName;card.querySelector('.tracking-person span').textContent=student.email;card.elements.stage.value=student.stage;card.elements.notes.value=student.notes;
-    card.addEventListener('submit',saveTracking);list.appendChild(card);
-  });
+  const filters=new URLSearchParams(new FormData(document.querySelector('#tracking-filters')));const selectedCourse=document.querySelector('#tracking-course').value;
+  const {students,courses,enrollmentCandidates}=await request(`/api/users/students/tracking?${filters}`);const list=document.querySelector('#tracking-list');list.textContent='';
+  const courseSelect=document.querySelector('#tracking-course');courseSelect.textContent='';const all=document.createElement('option');all.value='';all.textContent='Todos los cursos';courseSelect.appendChild(all);courses.forEach(course=>{const option=document.createElement('option');option.value=course.id;option.textContent=course.title;courseSelect.appendChild(option);});courseSelect.value=selectedCourse;
+  const enrollmentSelect=document.querySelector('#enrollment-student');if(enrollmentSelect){enrollmentSelect.textContent='';enrollmentCandidates.filter(student=>student.status==='active').forEach(student=>{const option=document.createElement('option');option.value=student.id;option.textContent=`${student.fullName} · ${student.email}`;enrollmentSelect.appendChild(option);});}
+  if(!students.length){list.className='tracking-list empty-state';list.textContent='No hay estudiantes que coincidan con los filtros.';document.querySelector('#student-record').innerHTML='<div class="tracking-empty"><p>No se encontraron expedientes para mostrar.</p></div>';selectedTrackingStudentId=null;return;}
+  list.className='tracking-list';
+  students.forEach(student=>{const button=document.createElement('button');button.type='button';button.dataset.studentId=student.id;button.className=`tracking-student${Number(student.id)===Number(selectedTrackingStudentId)?' active':''}`;const name=document.createElement('strong');name.textContent=student.fullName;const email=document.createElement('span');email.textContent=student.email;const count=document.createElement('small');count.textContent=`${student.enrolledCourseCount} curso${Number(student.enrolledCourseCount)===1?'':'s'}`;button.append(name,email,count);button.addEventListener('click',()=>loadStudentRecord(student.id));list.appendChild(button);});
+  if(selectedTrackingStudentId&&students.some(student=>Number(student.id)===Number(selectedTrackingStudentId)))await loadStudentRecord(selectedTrackingStudentId);
 }
+
+async function loadStudentRecord(studentId){
+  selectedTrackingStudentId=Number(studentId);document.querySelectorAll('.tracking-student').forEach(button=>button.classList.toggle('active',Number(button.dataset.studentId)===selectedTrackingStudentId));
+  const record=document.querySelector('#student-record');record.innerHTML='<div class="tracking-empty"><p>Cargando expediente…</p></div>';
+  try{
+    const data=await request(`/api/users/students/${studentId}/academic-record`);record.textContent='';
+    const profile=document.createElement('div');profile.className='student-profile';const title=document.createElement('h3');title.textContent=data.student.fullName;const email=document.createElement('p');email.textContent=data.student.email;profile.append(title,email);
+    const facts=document.createElement('div');facts.className='student-profile-grid';addFact(facts,'Estado',data.student.status==='active'?'Activo':'Inactivo');addFact(facts,'Registrado',displayDate(data.student.createdAt));addFact(facts,'Último acceso',displayDate(data.student.lastLoginAt));
+    if(data.application){addFact(facts,'Teléfono',data.application.phone);addFact(facts,'Edad',data.application.ageRange);addFact(facts,'Ubicación',data.application.location);addFact(facts,'Perfil',data.application.pathway==='health-professional'?'Profesional de salud':'Acompañamiento');addFact(facts,'Experiencia en crisis',data.application.crisisExperience?'Sí':'No');addFact(facts,'Procedencia',data.application.referralSource);addFact(facts,'Compromiso de supervisión',data.application.supervisionCommitment?'Aceptado':'No aceptado');addFact(facts,'Postulación',data.application.status);addFact(facts,'Fecha de postulación',displayDate(data.application.createdAt));addFact(facts,'Sesión informativa',data.application.attendedInfoSession===null?'Sin respuesta':data.application.attendedInfoSession?'Asistió':'No asistió');}
+    profile.appendChild(facts);
+    if(data.application?.motivation){const motivation=document.createElement('div');motivation.className='application-answer';const label=document.createElement('strong');label.textContent='Motivación';const value=document.createElement('p');value.textContent=data.application.motivation;motivation.append(label,value);profile.appendChild(motivation);}
+    if(data.application?.sessionFeedback){const feedback=document.createElement('div');feedback.className='application-answer';const label=document.createElement('strong');label.textContent='Comentario sobre la sesión informativa';const value=document.createElement('p');value.textContent=data.application.sessionFeedback;feedback.append(label,value);profile.appendChild(feedback);}
+    const heading=document.createElement('h4');heading.className='academic-heading';heading.textContent='Récord académico';profile.appendChild(heading);
+    const records=document.createElement('div');records.className='academic-records';if(!data.records.length){records.classList.add('empty-state');records.textContent='El estudiante todavía no tiene cursos dentro de tu alcance.';}data.records.forEach(course=>records.appendChild(buildAcademicCourse(course)));profile.appendChild(records);record.appendChild(profile);
+  }catch(error){record.innerHTML='';const empty=document.createElement('div');empty.className='tracking-empty';empty.textContent=error.message;record.appendChild(empty);}
+}
+
+function buildAcademicCourse(course){
+  const article=document.createElement('article');article.className='academic-course';const header=document.createElement('div');header.className='academic-course-header';const identity=document.createElement('div');const title=document.createElement('h4');title.textContent=course.courseTitle;const teacher=document.createElement('p');teacher.textContent=`Profesor: ${course.teacherName} · Matrícula: ${displayDate(course.enrolledAt)}`;identity.append(title,teacher);const summary=document.createElement('div');summary.className='progress-summary';summary.textContent=`${course.progress}%`;const detail=document.createElement('small');detail.textContent=`${course.completedLessons} de ${course.totalLessons} lecciones`;summary.append(document.createElement('br'),detail);header.append(identity,summary);article.appendChild(header);
+  const track=document.createElement('div');track.className='progress-track';track.setAttribute('aria-label',`Progreso ${course.progress}%`);const fill=document.createElement('span');fill.style.width=`${course.progress}%`;track.appendChild(fill);article.appendChild(track);
+  const form=document.createElement('form');form.className='support-form';form.dataset.enrollmentId=course.enrollmentId;
+  [['Supervisión','supervisionCompleted','Supervisión completada','supervisionNotes',course.supervisionCompleted,course.supervisionNotes],['Práctica','practiceCompleted','Práctica completada','practiceNotes',course.practiceCompleted,course.practiceNotes],['Terapia','therapyAttendance','Asistencia a terapia confirmada','therapyNotes',course.therapyAttendance,course.therapyNotes]].forEach(([legendText,checkName,checkLabel,notesName,checked,notes])=>{const fieldset=document.createElement('fieldset');fieldset.className='support-area';const legend=document.createElement('legend');legend.textContent=legendText;const label=document.createElement('label');label.className='support-check';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.name=checkName;checkbox.checked=checked;const text=document.createElement('span');text.textContent=checkLabel;label.append(checkbox,text);const textarea=document.createElement('textarea');textarea.name=notesName;textarea.maxLength=5000;textarea.placeholder=`Observaciones de ${legendText.toLowerCase()}`;textarea.value=notes||'';fieldset.append(legend,label,textarea);form.appendChild(fieldset);});
+  const actions=document.createElement('div');actions.className='support-actions';const button=document.createElement('button');button.className='small-button';button.type='submit';button.textContent='Guardar acompañamiento';const message=document.createElement('p');message.className='form-message';message.setAttribute('role','alert');actions.append(button,message);form.appendChild(actions);form.addEventListener('submit',saveCourseSupport);article.appendChild(form);return article;
+}
+
+async function saveCourseSupport(event){
+  event.preventDefault();const form=event.currentTarget;const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));values.supervisionCompleted=form.elements.supervisionCompleted.checked;values.practiceCompleted=form.elements.practiceCompleted.checked;values.therapyAttendance=form.elements.therapyAttendance.checked;button.disabled=true;
+  try{const data=await request(`/api/users/enrollments/${form.dataset.enrollmentId}/support`,{method:'PATCH',body:JSON.stringify(values)});message.className='form-message success';message.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}
+}
+
+function buildLessonQuestions(){
+  const container=document.querySelector('#lesson-questions-builder');if(!container||container.children.length)return;
+  const heading=document.createElement('div');heading.className='questions-heading';heading.innerHTML='<span>Comprobación formativa</span><h4>Seis preguntas de comprensión</h4><p>No asignan puntuación. El estudiante deberá responderlas correctamente para completar la lección.</p>';container.appendChild(heading);
+  for(let question=1;question<=6;question+=1){
+    const fieldset=document.createElement('fieldset');fieldset.className='question-editor';
+    const legend=document.createElement('legend');legend.textContent=`Pregunta ${question}`;fieldset.appendChild(legend);
+    const prompt=document.createElement('label');prompt.className='field';prompt.innerHTML=`Enunciado<input name="question${question}Text" maxlength="1000" required>`;fieldset.appendChild(prompt);
+    const options=document.createElement('div');options.className='question-options-editor';
+    for(let option=1;option<=4;option+=1){const label=document.createElement('label');label.className='field';label.innerHTML=`Opción ${option}<input name="question${question}Option${option}" maxlength="500" required>`;options.appendChild(label);}
+    fieldset.appendChild(options);
+    const correct=document.createElement('label');correct.className='field correct-option-field';correct.innerHTML=`Opción correcta<select name="question${question}Correct" required><option value="">Selecciona</option><option value="1">Opción 1</option><option value="2">Opción 2</option><option value="3">Opción 3</option><option value="4">Opción 4</option></select>`;fieldset.appendChild(correct);container.appendChild(fieldset);
+  }
+}
+function lessonPayload(values){const questions=[];for(let question=1;question<=6;question+=1)questions.push({text:values[`question${question}Text`],options:[1,2,3,4].map(option=>values[`question${question}Option${option}`]),correctOption:Number(values[`question${question}Correct`])});return{title:values.title,content:values.content,position:Number(values.position),estimatedMinutes:values.estimatedMinutes?Number(values.estimatedMinutes):null,videoUrl:values.videoUrl,pdfUrl:values.pdfUrl,slidesUrl:values.slidesUrl||null,questions};}
 
 function bindCourseBuilder(){
   document.querySelector('#course-builder').hidden=false;
   const bindings=[
     ['#module-form',values=>`/api/learning/courses/${values.courseId}/modules`,values=>({title:values.title,position:Number(values.position)})],
-    ['#lesson-form',values=>`/api/learning/modules/${values.moduleId}/lessons`,values=>({title:values.title,content:values.content,position:Number(values.position),estimatedMinutes:values.estimatedMinutes?Number(values.estimatedMinutes):null})],
+    ['#lesson-form',values=>`/api/learning/modules/${values.moduleId}/lessons`,lessonPayload],
     ['#enrollment-form',values=>`/api/learning/courses/${values.courseId}/enrollments`,values=>({studentId:Number(values.studentId)})]
   ];
-  bindings.forEach(([selector,urlFor,payloadFor])=>{const form=document.querySelector(selector);form.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(form));const message=form.querySelector('.form-message');try{const data=await request(urlFor(values),{method:'POST',body:JSON.stringify(payloadFor(values))});message.className='form-message success';message.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}});});
+  bindings.forEach(([selector,urlFor,payloadFor])=>{const form=document.querySelector(selector);form.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(form));const message=form.querySelector('.form-message');try{const data=await request(urlFor(values),{method:'POST',body:JSON.stringify(payloadFor(values))});message.className='form-message success';message.textContent=data.message;if(selector==='#enrollment-form')await loadTracking();}catch(error){message.className='form-message error';message.textContent=error.message;}});});
 }
-async function saveTracking(event){event.preventDefault();const form=event.currentTarget;const message=document.querySelector('#tracking-message');const values=Object.fromEntries(new FormData(form));values.progress=Number(values.progress);try{const data=await request(`/api/users/students/${form.dataset.studentId}/tracking`,{method:'PATCH',body:JSON.stringify(values)});message.className='form-message success';message.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}}
-
 function setupUserCreation(){
   const form=document.querySelector('#user-form');const select=form.elements.role;
   const roles=currentUser.role==='superuser'?['administrator','writer','teacher','student']:['writer','teacher','student'];
@@ -174,10 +231,10 @@ async function init(){
     if(courseRoles.includes(currentUser.role))document.querySelector('#course-form').hidden=false;
     else document.querySelector('#courses-nav').hidden=true;
     if(trackingRoles.includes(currentUser.role)){document.querySelector('#tracking-nav').hidden=false;await loadTracking();}
-    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#applications-nav').hidden=false;setupUserCreation();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadApplications(true)]);}
+    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#applications-nav').hidden=false;setupUserCreation();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadApplications(true),loadDashboardStatistics()]);}
     if(currentUser.role==='superuser'){document.querySelector('#audit-nav').hidden=false;await loadAudit(true);}
     await loadContent();
-    if(courseRoles.includes(currentUser.role))bindCourseBuilder();
+    if(courseRoles.includes(currentUser.role)){buildLessonQuestions();bindCourseBuilder();}
     openHashPanel();
   }catch(error){if(!currentUser)window.location.replace('/login.html');}
 }
@@ -188,7 +245,8 @@ document.querySelector('#audit-more').addEventListener('click',()=>loadAudit());
 document.querySelector('#audit-filters').addEventListener('submit',event=>{event.preventDefault();loadAudit(true);});
 document.querySelector('#audit-clear').addEventListener('click',()=>{document.querySelector('#audit-filters').reset();loadAudit(true);});
 document.querySelector('#application-filters').addEventListener('submit',event=>{event.preventDefault();loadApplications(true);});
-document.querySelector('#applications-clear').addEventListener('click',()=>{document.querySelector('#application-filters').reset();loadApplications(true);});
+document.querySelector('#applications-clear').addEventListener('click',()=>{const form=document.querySelector('#application-filters');form.reset();form.elements.status.value='pending';loadApplications(true);});
 document.querySelector('#applications-more').addEventListener('click',()=>loadApplications());
+document.querySelector('#tracking-filters').addEventListener('submit',event=>{event.preventDefault();loadTracking();});
 setupNavigation();
 init();

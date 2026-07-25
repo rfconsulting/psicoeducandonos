@@ -139,11 +139,39 @@ CREATE TABLE IF NOT EXISTS lessons (
   content MEDIUMTEXT NOT NULL,
   position SMALLINT UNSIGNED NOT NULL,
   estimated_minutes SMALLINT UNSIGNED NULL,
+  video_url VARCHAR(500) NOT NULL,
+  pdf_url VARCHAR(500) NOT NULL,
+  slides_url VARCHAR(500) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_module_lesson_position (module_id, position),
   CONSTRAINT fk_lesson_module FOREIGN KEY (module_id) REFERENCES course_modules(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS lesson_questions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  lesson_id BIGINT UNSIGNED NOT NULL,
+  question_text VARCHAR(1000) NOT NULL,
+  position TINYINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_lesson_question_position (lesson_id, position),
+  CONSTRAINT fk_question_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  CONSTRAINT chk_question_position CHECK (position BETWEEN 1 AND 6)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS lesson_question_options (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  question_id BIGINT UNSIGNED NOT NULL,
+  option_text VARCHAR(500) NOT NULL,
+  position TINYINT UNSIGNED NOT NULL,
+  is_correct BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_question_option_position (question_id, position),
+  KEY idx_option_question_correct (question_id, is_correct),
+  CONSTRAINT fk_option_question FOREIGN KEY (question_id) REFERENCES lesson_questions(id) ON DELETE CASCADE,
+  CONSTRAINT chk_option_position CHECK (position BETWEEN 1 AND 4)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS course_enrollments (
@@ -160,6 +188,22 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
   CONSTRAINT fk_enrollment_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   CONSTRAINT fk_enrollment_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_enrollment_actor FOREIGN KEY (enrolled_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS enrollment_support_tracking (
+  enrollment_id BIGINT UNSIGNED NOT NULL,
+  updated_by BIGINT UNSIGNED NOT NULL,
+  supervision_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  supervision_notes TEXT NULL,
+  practice_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  practice_notes TEXT NULL,
+  therapy_attendance BOOLEAN NOT NULL DEFAULT FALSE,
+  therapy_notes TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (enrollment_id),
+  CONSTRAINT fk_support_enrollment FOREIGN KEY (enrollment_id) REFERENCES course_enrollments(id) ON DELETE CASCADE,
+  CONSTRAINT fk_support_editor FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS lesson_progress (

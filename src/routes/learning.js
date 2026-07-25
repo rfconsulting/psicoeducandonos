@@ -4,6 +4,7 @@ const { requireRole, requireCapability, verifyCsrf } = require('../middleware/se
 const { CAPABILITIES, hasCapability } = require('../constants/access');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
+const { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers } = require('../validation/lesson');
 
 const router = express.Router();
 const clean = (value, max) => String(value || '').trim().slice(0, max);
@@ -62,13 +63,38 @@ router.post('/modules/:moduleId/lessons', requireCapability(CAPABILITIES.COURSE_
     const content = clean(req.body.content, 50000);
     const position = Number(req.body.position);
     const estimatedMinutes = req.body.estimatedMinutes ? Number(req.body.estimatedMinutes) : null;
-    if (!Number.isSafeInteger(moduleId) || title.length < 3 || content.length < 10 || !Number.isInteger(position) || position < 1 || (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 1440))) return res.status(422).json({ error: 'Datos de la lección inválidos.' });
+    const videoUrl = youtubeUrl(req.body.videoUrl);
+    const pdfUrl = driveUrl(req.body.pdfUrl);
+    const slidesUrl = req.body.slidesUrl ? driveUrl(req.body.slidesUrl) : null;
+    const questions = normalizeQuestions(req.body.questions);
+    const invalid = !Number.isSafeInteger(moduleId) || title.length < 3 || content.length < 10
+      || !Number.isInteger(position) || position < 1
+      || (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 1440))
+      || !videoUrl || !pdfUrl || (req.body.slidesUrl && !slidesUrl) || !questions;
+    if (invalid) return res.status(422).json({ error: 'Completa la lección, sus enlaces y las seis preguntas con cuatro opciones.' });
     const [modules] = await pool.execute('SELECT course_id FROM course_modules WHERE id=? LIMIT 1', [moduleId]);
     if (!modules[0]) return res.status(404).json({ error: 'Módulo no encontrado.' });
     const course = await courseForManagement(req.authUser, modules[0].course_id);
     if (!course) return res.status(403).json({ error: 'No tienes permiso sobre este curso.' });
     const id = await withTransaction(async connection => {
-      const [result] = await connection.execute('INSERT INTO lessons (module_id,title,content,position,estimated_minutes) VALUES (?,?,?,?,?)', [moduleId, title, content, position, estimatedMinutes]);
+      const [result] = await connection.execute(
+        `INSERT INTO lessons
+         (module_id,title,content,position,estimated_minutes,video_url,pdf_url,slides_url)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [moduleId, title, content, position, estimatedMinutes, videoUrl, pdfUrl, slidesUrl]
+      );
+      for (const question of questions) {
+        const [createdQuestion] = await connection.execute(
+          'INSERT INTO lesson_questions (lesson_id,question_text,position) VALUES (?,?,?)',
+          [result.insertId, question.text, question.position]
+        );
+        for (let index = 0; index < question.options.length; index += 1) {
+          await connection.execute(
+            'INSERT INTO lesson_question_options (question_id,option_text,position,is_correct) VALUES (?,?,?,?)',
+            [createdQuestion.insertId, question.options[index], index + 1, question.correctOption === index + 1]
+          );
+        }
+      }
       await audit(req, 'lesson_created', 'lesson', result.insertId, { moduleId }, { db: connection, required: true });
       return result.insertId;
     });
@@ -110,6 +136,10 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
     if (req.authUser.role === 'student') {
       const [rows] = await pool.execute("SELECT id,status FROM course_enrollments WHERE course_id=? AND student_id=? AND status IN ('active','completed') LIMIT 1", [courseId, req.authUser.id]);
       enrollment = rows[0] || null;
+      if (!enrollment) {
+        if (course.status !== 'published') return res.status(404).json({ error: 'Curso no encontrado.' });
+        return res.json({ course, enrollment: null, locked: true, modules: [] });
+      }
     }
     if (course.status !== 'published' && !global && !owner && !enrollment) return res.status(404).json({ error: 'Curso no encontrado.' });
     const [modules] = await pool.execute('SELECT id,title,position FROM course_modules WHERE course_id=? ORDER BY position', [courseId]);
@@ -117,7 +147,34 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
     let lessons = [];
     if (moduleIds.length) {
       const placeholders = moduleIds.map(() => '?').join(',');
-      [lessons] = await pool.execute(`SELECT id,module_id AS moduleId,title,content,position,estimated_minutes AS estimatedMinutes FROM lessons WHERE module_id IN (${placeholders}) ORDER BY module_id,position`, moduleIds);
+      [lessons] = await pool.execute(
+        `SELECT id,module_id AS moduleId,title,content,position,
+                estimated_minutes AS estimatedMinutes,video_url AS videoUrl,
+                pdf_url AS pdfUrl,slides_url AS slidesUrl
+         FROM lessons WHERE module_id IN (${placeholders}) ORDER BY module_id,position`,
+        moduleIds
+      );
+    }
+    const lessonIds = lessons.map(lesson => lesson.id);
+    let questions = [];
+    let options = [];
+    if (lessonIds.length) {
+      const placeholders = lessonIds.map(() => '?').join(',');
+      [questions] = await pool.execute(
+        `SELECT id,lesson_id AS lessonId,question_text AS text,position
+         FROM lesson_questions WHERE lesson_id IN (${placeholders}) ORDER BY lesson_id,position`,
+        lessonIds
+      );
+      const questionIds = questions.map(question => question.id);
+      if (questionIds.length) {
+        const optionPlaceholders = questionIds.map(() => '?').join(',');
+        [options] = await pool.execute(
+          `SELECT id,question_id AS questionId,option_text AS text,position
+           FROM lesson_question_options WHERE question_id IN (${optionPlaceholders})
+           ORDER BY question_id,position`,
+          questionIds
+        );
+      }
     }
     let completedLessonIds = new Set();
     if (enrollment) {
@@ -126,33 +183,79 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
     }
     const structure = modules.map(module => ({
       ...module,
-      lessons: lessons.filter(lesson => lesson.moduleId === module.id).map(lesson => ({ ...lesson, completed: completedLessonIds.has(lesson.id) }))
+      lessons: lessons.filter(lesson => lesson.moduleId === module.id).map(lesson => ({
+        ...lesson,
+        videoEmbedUrl: youtubeEmbedUrl(lesson.videoUrl),
+        completed: completedLessonIds.has(lesson.id),
+        questions: questions.filter(question => question.lessonId === lesson.id).map(question => ({
+          ...question,
+          options: options.filter(option => option.questionId === question.id)
+        }))
+      }))
     }));
-    return res.json({ course, enrollment, modules: structure });
+    return res.json({ course, enrollment, locked: false, modules: structure });
   } catch (error) { return next(error); }
 });
 
 router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, async (req, res, next) => {
   try {
     const lessonId = Number(req.params.lessonId);
-    const completed = req.body.completed === true;
     if (!Number.isSafeInteger(lessonId)) return res.status(422).json({ error: 'Lección inválida.' });
     const [rows] = await pool.execute(
       `SELECT e.id AS enrollmentId FROM course_enrollments e
        JOIN course_modules m ON m.course_id=e.course_id JOIN lessons l ON l.module_id=m.id
-       WHERE e.student_id=? AND e.status='active' AND l.id=? LIMIT 1`,
+       WHERE e.student_id=? AND e.status IN ('active','completed') AND l.id=? LIMIT 1`,
       [req.authUser.id, lessonId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Lección no disponible.' });
+    const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
+    if (answers.length !== 6) return res.status(422).json({ error: 'Responde las seis preguntas antes de completar la lección.' });
+    const [correctOptions] = await pool.execute(
+      `SELECT q.id AS questionId,o.id AS optionId,q.position
+       FROM lesson_questions q
+       JOIN lesson_question_options o ON o.question_id=q.id AND o.is_correct=TRUE
+       WHERE q.lesson_id=? ORDER BY q.position`,
+      [lessonId]
+    );
+    if (correctOptions.length !== 6) return res.status(409).json({ error: 'La comprobación de esta lección todavía no está configurada.' });
+    const incorrectQuestions = evaluateAnswers(correctOptions, answers);
+    if (!incorrectQuestions) return res.status(422).json({ error: 'Las respuestas enviadas no son válidas.' });
+    if (incorrectQuestions.length) {
+      return res.status(422).json({
+        error: 'Revisa tus respuestas: aún no todas son correctas.',
+        incorrectQuestions
+      });
+    }
     await withTransaction(async connection => {
       await connection.execute(
-        `INSERT INTO lesson_progress (enrollment_id,lesson_id,completed_at) VALUES (?,?,?)
+        `INSERT INTO lesson_progress (enrollment_id,lesson_id,completed_at) VALUES (?,?,UTC_TIMESTAMP())
          ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at)`,
-        [rows[0].enrollmentId, lessonId, completed ? new Date() : null]
+        [rows[0].enrollmentId, lessonId]
       );
-      await audit(req, 'lesson_progress_updated', 'lesson', lessonId, { completed }, { db: connection, required: true });
+      const [[totals]] = await connection.execute(
+        `SELECT COUNT(l.id) AS totalLessons,
+                COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS completedLessons
+         FROM course_enrollments e
+         JOIN course_modules m ON m.course_id=e.course_id
+         JOIN lessons l ON l.module_id=m.id
+         LEFT JOIN lesson_progress lp ON lp.enrollment_id=e.id AND lp.lesson_id=l.id
+         WHERE e.id=?`,
+        [rows[0].enrollmentId]
+      );
+      if (Number(totals.totalLessons) > 0 && Number(totals.totalLessons) === Number(totals.completedLessons)) {
+        await connection.execute(
+          "UPDATE course_enrollments SET status='completed',completed_at=UTC_TIMESTAMP() WHERE id=?",
+          [rows[0].enrollmentId]
+        );
+      } else {
+        await connection.execute(
+          "UPDATE course_enrollments SET status='active',completed_at=NULL WHERE id=?",
+          [rows[0].enrollmentId]
+        );
+      }
+      await audit(req, 'lesson_progress_updated', 'lesson', lessonId, { completed: true }, { db: connection, required: true });
     });
-    return res.json({ message: 'Progreso actualizado.' });
+    return res.json({ message: '¡Todas las respuestas son correctas! Lección completada.', completed: true });
   } catch (error) { return next(error); }
 });
 

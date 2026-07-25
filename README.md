@@ -33,6 +33,8 @@ npm run migrate:p1
 npm run migrate:p2
 npm run migrate:p3
 npm run migrate:p4
+npm run migrate:p5
+npm run migrate:p6
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -97,12 +99,28 @@ No existe registro público directo. Las personas externas comienzan en `/postul
 
 El panel adapta su menú al rol autenticado. Las opciones que el usuario no puede utilizar no se muestran y cada endpoint vuelve a comprobar los permisos en Express.
 
+### Sistema visual
+
+La landing define la identidad visual utilizada por toda la aplicación:
+
+- verde profundo `#12312d` y verde principal `#163833`;
+- crema `#f3efe5` y papel `#faf8f2` para fondos;
+- coral `#e36f55` como acento y llamada a la acción;
+- `Newsreader` para títulos y `DM Sans` para interfaz y lectura;
+- botones redondeados, bordes verdes translúcidos y foco coral accesible.
+
+`styles.css` contiene la composición específica de la landing y `auth.css`
+aplica el mismo sistema a autenticación, paneles, cursos, artículos y páginas
+legales. Los colores adicionales del mapa de fases se conservan por su función
+semántica.
+
 Panel administrativo:
 
 - **Inicio:** resumen del espacio y alcance del rol.
+- **Inicio administrativo:** para `superuser` y `administrator`, muestra estudiantes inscritos, postulaciones pendientes, cursos, artículos, profesores, escritores y el desglose de matrículas por curso.
 - **Blog:** visible para `superuser`, `administrator`, `teacher` y `writer`.
 - **Formación:** visible para `superuser`, `administrator` y `teacher`.
-- **Seguimiento académico:** visible para `superuser`, `administrator` y `teacher`.
+- **Seguimiento académico:** visible para `superuser`, `administrator` y `teacher`, con búsqueda por nombre o curso, expediente y récord académico.
 - **Usuarios:** visible para `superuser` y `administrator`.
 - **Postulaciones:** visible para `superuser` y `administrator`.
 - **Registro de actividad:** visible exclusivamente para `superuser`.
@@ -121,7 +139,7 @@ El lector de artículos también reconstruye la navegación a partir del rol aut
 
 - `superuser`: control completo; asigna roles, crea usuarios, restablece contraseñas temporales, administra cuentas, artículos, cursos, seguimiento y consulta el registro de actividad.
 - `administrator`: crea usuarios con roles permitidos, administra estados de cuenta, artículos, cursos y seguimiento.
-- `teacher`: crea artículos y cursos, y registra el seguimiento de estudiantes.
+- `teacher`: crea artículos y cursos, y registra el seguimiento de los estudiantes inscritos en sus propios cursos.
 - `writer`: crea y publica artículos del blog.
 - `student`: consulta artículos y cursos publicados, accede a sus cursos inscritos y registra el progreso de sus lecciones.
 
@@ -204,11 +222,26 @@ npm audit --omit=dev
 Los cursos pueden contener:
 
 - Módulos ordenados.
-- Lecciones ordenadas con contenido y duración estimada.
+- Lecciones ordenadas con título, descripción, video de YouTube y duración.
+- PDF obligatorio y diapositivas opcionales mediante enlaces de Google Drive.
+- Seis preguntas formativas de selección simple, con cuatro opciones cada una.
 - Inscripciones de estudiantes.
 - Progreso por lección.
 
+Las preguntas no asignan calificación. El servidor conserva las respuestas
+correctas y solamente registra la lección como terminada cuando el estudiante
+responde correctamente las seis. Si alguna respuesta requiere revisión, la
+lección permanece pendiente y el estudiante puede intentarlo nuevamente.
+
 Profesores administran únicamente los cursos que crearon. Administradores y superusuario tienen alcance global. Los estudiantes solo pueden registrar progreso en lecciones de cursos donde tengan una inscripción activa.
+
+El seguimiento académico calcula el porcentaje a partir de las lecciones
+terminadas respecto del total de lecciones del curso. La ficha del estudiante
+incluye los datos disponibles de su cuenta y postulación. Cada matrícula
+mantiene un registro independiente de Supervisión, Práctica y asistencia a
+Terapia, con un indicador de cumplimiento y observaciones. El profesor solo
+puede consultar y actualizar estos campos en cursos creados por él; el
+administrador y el superusuario tienen alcance global.
 
 ## Postulaciones al diplomado
 
@@ -324,20 +357,49 @@ La ejecución elimina tokens usados o expirados, borra eventos de auditoría ven
 
 ## Despliegue en Hostinger
 
-La base de datos se inicializa de forma idempotente antes de cada arranque:
+La aplicación productiva utiliza Node.js 20, Express y `src/server.js` como
+archivo de entrada. Para instalaciones nuevas o cambios de modelo ejecuta:
 
 ```powershell
 npm run db:init
+npm run migrate:p5
+npm run migrate:p6
 ```
 
 En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,
 `APP_PUBLIC_URL=https://psicoeducandonos.org` y las credenciales de la base
-MySQL asignada al dominio. `npm start` ejecuta primero la inicialización del
-esquema y después levanta Express.
+MySQL asignada al dominio. En una ejecución normal, `npm start` invoca
+`prestart`; el despliegue de aplicaciones JavaScript de Hostinger inicia
+directamente `src/server.js`, por lo que las migraciones deben verificarse
+explícitamente durante el despliegue.
 
 También son obligatorios la API key de Resend y un remitente perteneciente a
 un dominio verificado. No deben publicarse en Git ni reutilizarse como
 contraseñas.
+
+El script `scripts/build-hostinger-archive.js` prepara un directorio temporal
+con los archivos necesarios y la configuración productiva. Toma `DB_NAME` y
+`DB_USER` del `.env` vigente; no contiene nombres de base fijados en el código.
+El archivo resultante debe subirse por el canal autenticado de Hostinger,
+solicitar su eliminación después de extraerlo y eliminar inmediatamente toda
+copia temporal local. Nunca se añade a Git.
+
+Validación previa:
+
+```powershell
+npm test
+npm run lint
+npm audit --omit=dev
+npm run check:secrets
+```
+
+Validación posterior:
+
+- `/` responde `200` y muestra la landing del diplomado.
+- `/login.html` responde `200`.
+- `/styles.css` se entrega como `text/css`.
+- `/api/health` responde `200` con `{"status":"ok"}`.
+- `/api/dashboard/statistics` responde `401` sin sesión.
 
 El despliegue incluye:
 
@@ -348,6 +410,5 @@ El despliegue incluye:
 - DMARC y CAA en DNS. La política DMARC comienza en modo de observación
   (`p=none`) y debe endurecerse después de revisar los reportes.
 
-Antes de reemplazar el sitio existente y retirar Moodle se debe comprobar
-`/api/health`, el inicio de sesión, la postulación, el envío real de correo y
-una copia de seguridad recuperable.
+Antes de cada despliegue se debe conservar una copia recuperable y comprobar
+inicio de sesión, postulación, correo transaccional, MFA y conexión MySQL.

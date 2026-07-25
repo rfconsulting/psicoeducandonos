@@ -74,7 +74,7 @@ router.post('/', verifyCsrf, async (req, res, next) => {
 router.get('/', requireCapability(CAPABILITIES.APPLICATION_MANAGE), async (req, res, next) => {
   try {
     const paging = pagination(req.query, 30, 100);
-    const status = String(req.query.status || '');
+    const status = String(req.query.status || 'pending');
     const pathway = String(req.query.pathway || '');
     const search = String(req.query.search || '').trim().slice(0, 120);
     if (status && !STATUSES.has(status)) return res.status(422).json({ error: 'Estado inválido.' });
