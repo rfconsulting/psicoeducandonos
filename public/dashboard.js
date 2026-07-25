@@ -18,6 +18,7 @@ const activityNames={
   password_reset_requested:'Recuperación solicitada',password_reset_delivery_unconfigured:'Recuperación sin proveedor de correo',
   password_reset_delivery_failed:'Fallo al entregar recuperación',password_reset_completed:'Contraseña restablecida',
   mfa_verified:'Verificación MFA completada',
+  mfa_challenge_limited:'Desafío MFA limitado temporalmente',
   application_submitted:'Postulación recibida',application_reviewed:'Postulación revisada',
   student_account_created_from_application:'Cuenta estudiantil creada desde postulación'
 };

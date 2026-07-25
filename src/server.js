@@ -90,6 +90,14 @@ const limiterOptions = { windowMs: 15 * 60 * 1000, standardHeaders: 'draft-8', l
 const loginLimiter = rateLimit({ ...limiterOptions, limit: 10, message: { error: 'Demasiados intentos de acceso. Espera unos minutos.' } });
 const applicationLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas postulaciones. Espera unos minutos.' } });
 const recoveryLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas solicitudes de recuperación. Espera unos minutos.' } });
+const mfaLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: req => `${req.sessionID || 'no-session'}:${req.session?.user?.id || 'anonymous'}`,
+  message: { error: 'No fue posible completar la verificación. Inicia sesión nuevamente e inténtalo más tarde.' }
+});
 const apiLimiter = rateLimit({ ...limiterOptions, limit: 300, message: { error: 'Demasiadas solicitudes. Espera unos minutos.' } });
 app.use('/api', apiLimiter);
 app.get('/api/csrf-token', issueCsrfToken);
@@ -97,6 +105,7 @@ app.use('/api/auth/login', loginLimiter);
 app.post('/api/applications', applicationLimiter);
 app.use('/api/auth/forgot-password', recoveryLimiter);
 app.use('/api/auth/reset-password', recoveryLimiter);
+app.use('/api/auth/mfa/verify', mfaLimiter);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/content', require('./routes/content'));

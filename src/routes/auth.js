@@ -11,6 +11,11 @@ const mfa = require('../services/mfa');
 const securityAlert = require('../services/security-alert');
 const { ROLES } = require('../constants/access');
 const {
+  resetMfaAttempts,
+  mfaChallengeAvailable,
+  recordMfaFailure
+} = require('../services/mfa-attempts');
+const {
   PASSWORD_RESET_EXPIRES_MINUTES,
   generateResetToken,
   hashResetToken,
@@ -98,11 +103,21 @@ router.post('/mfa/setup', requireAuth, verifyCsrf, async (req, res, next) => {
 
 router.post('/mfa/verify', requireAuth, verifyCsrf, async (req, res, next) => {
   try {
+    const genericError = 'No fue posible completar la verificación. Inicia sesión nuevamente e inténtalo más tarde.';
+    if (!mfaChallengeAvailable(req.session, req.authUser.id)) {
+      return res.status(429).json({ error: genericError });
+    }
     const [rows] = await pool.execute('SELECT mfa_secret_encrypted FROM users WHERE id=? LIMIT 1', [req.authUser.id]);
     if (!rows[0]?.mfa_secret_encrypted || !mfa.verify(mfa.decrypt(rows[0].mfa_secret_encrypted), req.body.code)) {
+      const attempt = recordMfaFailure(req.session, req.authUser.id);
       await securityAlert('mfa_failed', { userId: req.authUser.id, requestId: req.requestId });
+      if (attempt.limited) {
+        await audit(req, 'mfa_challenge_limited', 'user', req.authUser.id);
+        return res.status(429).json({ error: genericError });
+      }
       return res.status(401).json({ error: 'Código de verificación incorrecto.' });
     }
+    resetMfaAttempts(req.session);
     await pool.execute('UPDATE users SET mfa_enabled=TRUE WHERE id=?', [req.authUser.id]);
     req.session.mfaVerified = true;
     await audit(req, 'mfa_verified', 'user', req.authUser.id);
