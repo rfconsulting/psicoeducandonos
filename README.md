@@ -268,6 +268,9 @@ POST  /api/learning/courses/:courseId/enrollments
 GET   /api/learning/courses/:courseId/structure
 GET   /api/learning/enrollments/my
 PATCH /api/learning/lessons/:lessonId/progress
+PATCH /api/content/courses/:id
+PATCH /api/learning/modules/:moduleId
+PATCH /api/learning/lessons/:lessonId
 ```
 
 ## Registro de actividad

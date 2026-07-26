@@ -3,6 +3,8 @@ const articleRoles=['superuser','administrator','writer','teacher'];
 const courseRoles=['superuser','administrator','teacher'];
 const trackingRoles=['superuser','administrator','teacher'];
 let currentUser=null;let csrfToken='';
+let editingCourseId=null;
+let editingModuleId=null;let editingLessonId=null;let managedCourseId=null;
 let auditCursor=null;
 let applicationsCursor=null;
 
@@ -10,8 +12,8 @@ const activityNames={
   login_succeeded:'Inicio de sesión',login_failed:'Intento de acceso fallido',logout:'Cierre de sesión',user_created:'Usuario creado',
   user_role_changed:'Rol de usuario actualizado',user_status_changed:'Estado de usuario actualizado',
   user_password_reset_by_superuser:'Contraseña restablecida por superusuario',
-  article_created:'Artículo creado',course_created:'Curso creado',
-  course_module_created:'Módulo creado',lesson_created:'Lección creada',
+  article_created:'Artículo creado',course_created:'Curso creado',course_updated:'Curso actualizado',
+  course_module_created:'Módulo creado',course_module_updated:'Módulo actualizado',lesson_created:'Lección creada',lesson_updated:'Lección actualizada',
   student_enrolled:'Estudiante inscrito',student_tracking_updated:'Seguimiento actualizado',
   enrollment_support_updated:'Acompañamiento de matrícula actualizado',
   lesson_progress_updated:'Progreso de lección actualizado',password_changed:'Contraseña actualizada',
@@ -45,7 +47,7 @@ async function request(url,options={}){
 function renderItems(containerId,items,type){
   const container=document.querySelector(containerId);container.textContent='';
   if(!items.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent=type==='article'?'Todavía no hay artículos disponibles.':'Todavía no hay cursos disponibles.';container.appendChild(empty);return;}
-  items.forEach(item=>{const card=document.createElement('article');card.className='content-card';const eyebrow=document.createElement('span');const created=type==='article'&&item.createdAt?` · ${new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(item.createdAt))}`:'';eyebrow.textContent=`${item.status==='published'?'Publicado':'Borrador'} · ${type==='article'?item.author:item.creator}${created}`;const title=document.createElement('h3');title.textContent=item.title;const copy=document.createElement('p');copy.textContent=type==='article'?item.summary:item.description;card.append(eyebrow,title,copy);if(type==='article'){const link=document.createElement('a');link.className='content-link';link.href=`/articulo.html?slug=${encodeURIComponent(item.slug)}`;link.textContent='Leer artículo →';card.appendChild(link);}container.appendChild(card);});
+  items.forEach(item=>{const card=document.createElement('article');card.className='content-card';const eyebrow=document.createElement('span');const created=type==='article'&&item.createdAt?` · ${new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(item.createdAt))}`:'';eyebrow.textContent=`${item.status==='published'?'Publicado':'Borrador'} · ${type==='article'?item.author:item.creator}${created}`;const title=document.createElement('h3');title.textContent=item.title;const copy=document.createElement('p');copy.textContent=type==='article'?item.summary:item.description;card.append(eyebrow,title,copy);if(type==='article'){const link=document.createElement('a');link.className='content-link';link.href=`/articulo.html?slug=${encodeURIComponent(item.slug)}`;link.textContent='Leer artículo →';card.appendChild(link);}else if(['superuser','administrator'].includes(currentUser.role)||item.creatorId===currentUser.id){const edit=document.createElement('button');edit.type='button';edit.className='small-button';edit.textContent='Editar curso';edit.addEventListener('click',()=>startCourseEdit(item));const content=document.createElement('button');content.type='button';content.className='small-button';content.textContent='Editar contenido';content.addEventListener('click',()=>loadCourseContentEditor(item));card.append(edit,content);}container.appendChild(card);});
 }
 async function loadContent(){const [{articles},{courses}]=await Promise.all([request('/api/content/articles'),request('/api/content/courses')]);renderItems('#articles-list',articles,'article');renderItems('#courses-list',courses,'course');document.querySelectorAll('.course-selector').forEach(select=>{select.textContent='';courses.filter(course=>['superuser','administrator'].includes(currentUser.role)||course.creatorId===currentUser.id).forEach(course=>{const option=document.createElement('option');option.value=course.id;option.textContent=course.title;select.appendChild(option);});});}
 
@@ -62,6 +64,17 @@ async function loadDashboardStatistics(){
 function bindEditor(formId,url){
   const form=document.querySelector(formId);
   form.addEventListener('submit',async(event)=>{event.preventDefault();const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));values.status=values.publish?'published':'draft';delete values.publish;button.disabled=true;message.className='form-message';try{const data=await request(url,{method:'POST',body:JSON.stringify(values)});message.classList.add('success');message.textContent=data.message;form.reset();await loadContent();}catch(error){message.classList.add('error');message.textContent=error.message;}finally{button.disabled=false;}});
+}
+
+function resetCourseEditor(){
+  const form=document.querySelector('#course-form');editingCourseId=null;form.reset();document.querySelector('#course-form-title').textContent='Nuevo curso';document.querySelector('#course-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Guardar curso';
+}
+function startCourseEdit(course){
+  const form=document.querySelector('#course-form');editingCourseId=course.id;form.elements.title.value=course.title;form.elements.description.value=course.description;form.elements.publish.checked=course.status==='published';document.querySelector('#course-form-title').textContent='Editar curso';document.querySelector('#course-edit-cancel').hidden=false;form.querySelector('button[type="submit"]').textContent='Actualizar curso';form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function setupCourseEditor(){
+  const form=document.querySelector('#course-form');document.querySelector('#course-edit-cancel').addEventListener('click',resetCourseEditor);
+  form.addEventListener('submit',async event=>{event.preventDefault();const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));values.status=values.publish?'published':'draft';delete values.publish;button.disabled=true;message.className='form-message';try{const data=await request(editingCourseId?`/api/content/courses/${editingCourseId}`:'/api/content/courses',{method:editingCourseId?'PATCH':'POST',body:JSON.stringify(values)});resetCourseEditor();message.className='form-message success';message.textContent=data.message;await loadContent();}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}});
 }
 
 async function loadUsers(){
@@ -207,14 +220,34 @@ function buildLessonQuestions(){
 }
 function lessonPayload(values){const questions=[];for(let question=1;question<=6;question+=1)questions.push({text:values[`question${question}Text`],options:[1,2,3,4].map(option=>values[`question${question}Option${option}`]),correctOption:Number(values[`question${question}Correct`])});return{title:values.title,content:values.content,position:Number(values.position),estimatedMinutes:values.estimatedMinutes?Number(values.estimatedMinutes):null,videoUrl:values.videoUrl,pdfUrl:values.pdfUrl,slidesUrl:values.slidesUrl||null,questions};}
 
+function resetModuleEditor(){
+  const form=document.querySelector('#module-form');editingModuleId=null;form.reset();document.querySelector('#module-form-title').textContent='Añadir módulo';document.querySelector('#module-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Crear módulo';if(managedCourseId)form.elements.courseId.value=managedCourseId;
+}
+function resetLessonEditor(){
+  const form=document.querySelector('#lesson-form');editingLessonId=null;form.reset();document.querySelector('#lesson-form-title').textContent='Añadir lección';document.querySelector('#lesson-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Crear lección';
+}
+function startModuleEdit(module){
+  const form=document.querySelector('#module-form');editingModuleId=module.id;form.elements.courseId.value=managedCourseId;form.elements.title.value=module.title;form.elements.position.value=module.position;document.querySelector('#module-form-title').textContent='Editar módulo';document.querySelector('#module-edit-cancel').hidden=false;form.querySelector('button[type="submit"]').textContent='Actualizar módulo';form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function startLessonEdit(lesson){
+  const form=document.querySelector('#lesson-form');editingLessonId=lesson.id;form.elements.moduleId.value=lesson.moduleId;form.elements.title.value=lesson.title;form.elements.content.value=lesson.content;form.elements.position.value=lesson.position;form.elements.estimatedMinutes.value=lesson.estimatedMinutes||'';form.elements.videoUrl.value=lesson.videoUrl;form.elements.pdfUrl.value=lesson.pdfUrl;form.elements.slidesUrl.value=lesson.slidesUrl||'';
+  for(let index=0;index<6;index+=1){const question=lesson.questions[index];form.elements[`question${index+1}Text`].value=question?.text||'';for(let option=0;option<4;option+=1)form.elements[`question${index+1}Option${option+1}`].value=question?.options[option]?.text||'';form.elements[`question${index+1}Correct`].value=question?.correctOption||'';}
+  document.querySelector('#lesson-form-title').textContent='Editar lección';document.querySelector('#lesson-edit-cancel').hidden=false;form.querySelector('button[type="submit"]').textContent='Actualizar lección';form.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderCourseContentEditor(course,modules){
+  const manager=document.querySelector('#course-content-manager');const container=document.querySelector('#managed-course-structure');manager.hidden=false;document.querySelector('#managed-course-title').textContent=course.title;container.textContent='';
+  if(!modules.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Este curso todavía no tiene módulos.';container.appendChild(empty);return;}
+  modules.forEach(module=>{const article=document.createElement('article');article.className='managed-module';const header=document.createElement('div');header.className='managed-module-header';const title=document.createElement('h4');title.textContent=`${module.position}. ${module.title}`;const edit=document.createElement('button');edit.type='button';edit.className='small-button';edit.textContent='Editar módulo';edit.addEventListener('click',()=>startModuleEdit(module));header.append(title,edit);article.appendChild(header);const lessons=document.createElement('div');lessons.className='managed-lessons';module.lessons.forEach(lesson=>{const row=document.createElement('div');row.className='managed-lesson';const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=`${lesson.position}. ${lesson.title}`;const detail=document.createElement('span');detail.textContent=lesson.estimatedMinutes?`${lesson.estimatedMinutes} minutos`:'Duración no indicada';identity.append(name,detail);const lessonEdit=document.createElement('button');lessonEdit.type='button';lessonEdit.className='small-button';lessonEdit.textContent='Editar lección';lessonEdit.addEventListener('click',()=>startLessonEdit(lesson));row.append(identity,lessonEdit);lessons.appendChild(row);});if(!module.lessons.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Sin lecciones.';lessons.appendChild(empty);}article.appendChild(lessons);container.appendChild(article);});
+}
+async function loadCourseContentEditor(course){
+  managedCourseId=Number(course.id);document.querySelectorAll('.course-selector').forEach(select=>{select.value=String(managedCourseId);});const data=await request(`/api/learning/courses/${managedCourseId}/structure`);renderCourseContentEditor(data.course,data.modules);document.querySelector('#course-content-manager').scrollIntoView({behavior:'smooth',block:'start'});
+}
 function bindCourseBuilder(){
   document.querySelector('#course-builder').hidden=false;
-  const bindings=[
-    ['#module-form',values=>`/api/learning/courses/${values.courseId}/modules`,values=>({title:values.title,position:Number(values.position)})],
-    ['#lesson-form',values=>`/api/learning/modules/${values.moduleId}/lessons`,lessonPayload],
-    ['#enrollment-form',values=>`/api/learning/courses/${values.courseId}/enrollments`,values=>({studentId:Number(values.studentId)})]
-  ];
-  bindings.forEach(([selector,urlFor,payloadFor])=>{const form=document.querySelector(selector);form.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(form));const message=form.querySelector('.form-message');try{const data=await request(urlFor(values),{method:'POST',body:JSON.stringify(payloadFor(values))});message.className='form-message success';message.textContent=data.message;if(selector==='#enrollment-form')await loadTracking();}catch(error){message.className='form-message error';message.textContent=error.message;}});});
+  document.querySelector('#module-edit-cancel').addEventListener('click',resetModuleEditor);document.querySelector('#lesson-edit-cancel').addEventListener('click',resetLessonEditor);
+  const moduleForm=document.querySelector('#module-form');moduleForm.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(moduleForm));const message=moduleForm.querySelector('.form-message');const url=editingModuleId?`/api/learning/modules/${editingModuleId}`:`/api/learning/courses/${values.courseId}/modules`;try{const data=await request(url,{method:editingModuleId?'PATCH':'POST',body:JSON.stringify({title:values.title,position:Number(values.position)})});resetModuleEditor();message.className='form-message success';message.textContent=data.message;if(managedCourseId)await loadCourseContentEditor({id:managedCourseId});}catch(error){message.className='form-message error';message.textContent=error.message;}});
+  const lessonForm=document.querySelector('#lesson-form');lessonForm.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(lessonForm));const message=lessonForm.querySelector('.form-message');const url=editingLessonId?`/api/learning/lessons/${editingLessonId}`:`/api/learning/modules/${values.moduleId}/lessons`;try{const data=await request(url,{method:editingLessonId?'PATCH':'POST',body:JSON.stringify(lessonPayload(values))});resetLessonEditor();message.className='form-message success';message.textContent=data.message;if(managedCourseId)await loadCourseContentEditor({id:managedCourseId});}catch(error){message.className='form-message error';message.textContent=error.message;}});
+  const enrollmentForm=document.querySelector('#enrollment-form');enrollmentForm.addEventListener('submit',async event=>{event.preventDefault();const values=Object.fromEntries(new FormData(enrollmentForm));const message=enrollmentForm.querySelector('.form-message');try{const data=await request(`/api/learning/courses/${values.courseId}/enrollments`,{method:'POST',body:JSON.stringify({studentId:Number(values.studentId)})});message.className='form-message success';message.textContent=data.message;await loadTracking();}catch(error){message.className='form-message error';message.textContent=error.message;}});
 }
 function setupUserCreation(){
   const form=document.querySelector('#user-form');const select=form.elements.role;
@@ -241,7 +274,7 @@ async function init(){
   }catch(error){if(!currentUser)window.location.replace('/login.html');}
 }
 bindEditor('#article-form','/api/content/articles');
-bindEditor('#course-form','/api/content/courses');
+setupCourseEditor();
 document.querySelector('#logout').addEventListener('click',async()=>{try{await request('/api/auth/logout',{method:'POST'});}finally{window.location.replace('/login.html');}});
 document.querySelector('#audit-more').addEventListener('click',()=>loadAudit());
 document.querySelector('#audit-filters').addEventListener('submit',event=>{event.preventDefault();loadAudit(true);});

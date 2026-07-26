@@ -6,6 +6,7 @@ const withTransaction = require('../services/transaction');
 const { CAPABILITIES, hasCapability } = require('../constants/access');
 const contentRepository = require('../repositories/content-repository');
 const { pagination, page } = require('../utils/pagination');
+const { normalizeCoursePayload, courseForManagement } = require('../services/course-management');
 
 const router = express.Router();
 function text(value, max) { return String(value || '').trim().slice(0, max); }
@@ -91,6 +92,30 @@ router.post('/courses', requireCapability(CAPABILITIES.COURSE_CREATE), verifyCsr
     });
     res.status(201).json({ message: 'Curso creado.', id });
   } catch (error) { next(error); }
+});
+
+router.patch('/courses/:id', requireCapability(CAPABILITIES.COURSE_CREATE), verifyCsrf, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.id);
+    const payload = normalizeCoursePayload(req.body);
+    if (!Number.isSafeInteger(courseId) || courseId < 1 || !payload) {
+      return res.status(422).json({ error: 'Completa el título y la descripción del curso.' });
+    }
+    const course = await courseForManagement(pool, req.authUser, courseId);
+    if (!course) return res.status(404).json({ error: 'Curso no encontrado.' });
+    await withTransaction(async connection => {
+      await connection.execute(
+        `UPDATE courses SET title=?,description=?,status=?,
+         published_at=IF(?='published',COALESCE(published_at,UTC_TIMESTAMP()),NULL)
+         WHERE id=?`,
+        [payload.title, payload.description, payload.status, payload.status, courseId]
+      );
+      await audit(req, 'course_updated', 'course', courseId, { status: payload.status }, { db: connection, required: true });
+    });
+    return res.json({ message: 'Curso actualizado.' });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 module.exports = router;

@@ -1,6 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers } = require('../src/validation/lesson');
+const {
+  youtubeUrl,
+  driveUrl,
+  youtubeEmbedUrl,
+  normalizeQuestions,
+  evaluateAnswers,
+  questionForClient
+} = require('../src/validation/lesson');
 
 function questions() {
   return Array.from({ length: 6 }, (_, index) => ({
@@ -32,4 +39,17 @@ test('solo completa cuando las seis respuestas son correctas', () => {
   answers[2].optionId = 999;
   assert.deepEqual(evaluateAnswers(correct, answers), [3]);
   assert.equal(evaluateAnswers(correct, answers.slice(0, 5)), null);
+});
+
+test('solo entrega la opción correcta durante la gestión del curso', () => {
+  const question = { id: 10, lessonId: 3, text: 'Pregunta', position: 1 };
+  const options = [
+    { id: 1, questionId: 10, text: 'A', position: 1, isCorrect: 0 },
+    { id: 2, questionId: 10, text: 'B', position: 2, isCorrect: 1 }
+  ];
+  const studentView = questionForClient(question, options, false);
+  const managementView = questionForClient(question, options, true);
+  assert.equal(Object.hasOwn(studentView, 'correctOption'), false);
+  assert.equal(studentView.options.some(option => Object.hasOwn(option, 'isCorrect')), false);
+  assert.equal(managementView.correctOption, 2);
 });

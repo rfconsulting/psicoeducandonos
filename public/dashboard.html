@@ -80,24 +80,28 @@
       <div class="formation-workspace">
         <div class="formation-editor">
           <form class="editor-form" id="course-form" hidden>
-            <h3>Nuevo curso</h3>
+            <h3 id="course-form-title">Nuevo curso</h3>
             <div class="field"><label for="course-title">Título</label><input id="course-title" name="title" maxlength="180" required></div>
             <div class="field"><label for="course-description">Descripción</label><textarea id="course-description" name="description" rows="6" maxlength="10000" required></textarea></div>
-            <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar curso</button></div>
+            <div class="publish-row"><label><input type="checkbox" name="publish"> Curso publicado</label><div><button class="small-button secondary-button" id="course-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button" type="submit">Guardar curso</button></div></div>
             <p class="form-message" role="alert"></p>
           </form>
           <div class="course-builder" id="course-builder" hidden>
+            <section class="course-content-manager" id="course-content-manager" hidden>
+              <div class="course-catalog-heading"><span>Contenido</span><h3 id="managed-course-title">Módulos y lecciones</h3></div>
+              <div id="managed-course-structure"></div>
+            </section>
             <form class="editor-form" id="module-form">
-              <h3>Añadir módulo</h3>
+              <h3 id="module-form-title">Añadir módulo</h3>
               <div class="form-grid">
                 <div class="field"><label>Curso</label><select name="courseId" class="course-selector" required></select></div>
                 <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
               </div>
               <div class="field"><label>Título del módulo</label><input name="title" maxlength="180" required></div>
-              <button class="submit-button compact-button" type="submit">Crear módulo</button><p class="form-message"></p>
+              <div class="builder-actions"><button class="small-button secondary-button" id="module-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button compact-button" type="submit">Crear módulo</button></div><p class="form-message"></p>
             </form>
             <form class="editor-form" id="lesson-form">
-              <h3>Añadir lección</h3>
+              <h3 id="lesson-form-title">Añadir lección</h3>
               <div class="form-grid">
                 <div class="field"><label>ID del módulo</label><input name="moduleId" type="number" min="1" required></div>
                 <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
@@ -109,7 +113,7 @@
               <div class="field"><label>PDF de la lección en Google Drive</label><input name="pdfUrl" type="url" maxlength="500" placeholder="https://drive.google.com/..." required></div>
               <div class="field"><label>Diapositivas en Google Drive <span class="optional-label">(opcional)</span></label><input name="slidesUrl" type="url" maxlength="500" placeholder="https://drive.google.com/..."></div>
               <div class="lesson-questions-builder" id="lesson-questions-builder"></div>
-              <button class="submit-button compact-button" type="submit">Crear lección</button><p class="form-message"></p>
+              <div class="builder-actions"><button class="small-button secondary-button" id="lesson-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button compact-button" type="submit">Crear lección</button></div><p class="form-message"></p>
             </form>
           </div>
         </div>

@@ -7,3 +7,7 @@ npm-debug.log*
 .vscode/
 docs
 artifacts/
+.agents
+server.err.log
+server.out.log
+src.zip

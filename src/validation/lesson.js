@@ -65,4 +65,25 @@ function evaluateAnswers(correctOptions, answers) {
     .map(correct => Number(correct.position));
 }
 
-module.exports = { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers };
+function questionForClient(question, options, includeCorrect = false) {
+  const questionOptions = options.filter(option => Number(option.questionId) === Number(question.id));
+  return {
+    ...question,
+    ...(includeCorrect ? { correctOption: questionOptions.find(option => Boolean(option.isCorrect))?.position || null } : {}),
+    options: questionOptions.map(option => ({
+      id: option.id,
+      questionId: option.questionId,
+      text: option.text,
+      position: option.position
+    }))
+  };
+}
+
+module.exports = {
+  youtubeUrl,
+  driveUrl,
+  youtubeEmbedUrl,
+  normalizeQuestions,
+  evaluateAnswers,
+  questionForClient
+};
