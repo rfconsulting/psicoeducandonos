@@ -106,9 +106,9 @@ router.patch('/courses/:id', requireCapability(CAPABILITIES.COURSE_CREATE), veri
     await withTransaction(async connection => {
       await connection.execute(
         `UPDATE courses SET title=?,description=?,status=?,
-         published_at=IF(?='published',COALESCE(published_at,UTC_TIMESTAMP()),NULL)
+         published_at=IF(?,COALESCE(published_at,UTC_TIMESTAMP()),NULL)
          WHERE id=?`,
-        [payload.title, payload.description, payload.status, payload.status, courseId]
+        [payload.title, payload.description, payload.status, payload.status === 'published' ? 1 : 0, courseId]
       );
       await audit(req, 'course_updated', 'course', courseId, { status: payload.status }, { db: connection, required: true });
     });
