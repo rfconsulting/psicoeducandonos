@@ -6,15 +6,16 @@ function cleanNotes(value) {
 function supportPayload(body = {}) {
   const supervisionNotes = cleanNotes(body.supervisionNotes);
   const practiceNotes = cleanNotes(body.practiceNotes);
-  const therapyNotes = cleanNotes(body.therapyNotes);
-  if ([supervisionNotes, practiceNotes, therapyNotes].includes(null)) return null;
+  const usesLegacyNames = !Object.hasOwn(body, 'personalWorkCompleted') && !Object.hasOwn(body, 'personalWorkNotes');
+  const personalWorkNotes = cleanNotes(usesLegacyNames ? body.therapyNotes : body.personalWorkNotes);
+  if ([supervisionNotes, practiceNotes, personalWorkNotes].includes(null)) return null;
   return {
     supervisionCompleted: body.supervisionCompleted === true,
     supervisionNotes,
     practiceCompleted: body.practiceCompleted === true,
     practiceNotes,
-    therapyAttendance: body.therapyAttendance === true,
-    therapyNotes
+    personalWorkCompleted: (usesLegacyNames ? body.therapyAttendance : body.personalWorkCompleted) === true,
+    personalWorkNotes
   };
 }
 

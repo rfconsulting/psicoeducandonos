@@ -18,6 +18,11 @@
   </header>
   <div class="dashboard-shell">
     <aside class="dashboard-sidebar" aria-label="Menú del panel">
+      <div class="dashboard-profile">
+        <div class="dashboard-avatar" id="sidebar-avatar" aria-hidden="true">P</div>
+        <strong id="sidebar-name">Usuario</strong>
+        <span id="sidebar-role">Panel de control</span>
+      </div>
       <p class="sidebar-label">Panel de control</p>
       <nav class="dashboard-nav">
         <button class="nav-item active" type="button" data-panel-target="overview-panel">Inicio</button>
@@ -41,6 +46,7 @@
         <h2>Diplomado en Acompañamiento</h2>
         <p>Selecciona una sección del menú para administrar los recursos correspondientes a tu rol.</p>
       </div>
+      <div class="role-summary-grid" id="role-summary-grid" hidden aria-label="Resumen de tu actividad"></div>
       <section class="dashboard-statistics" id="dashboard-statistics" hidden aria-labelledby="statistics-title">
         <div class="statistics-heading">
           <div><span>Resumen general</span><h2 id="statistics-title">Indicadores de la plataforma</h2></div>

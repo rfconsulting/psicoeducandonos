@@ -12,6 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="auth.css">
+    <script src="notification-modal.js" defer></script>
     <script src="curso.js" defer></script>
 </head>
 
@@ -19,13 +20,20 @@
     <header><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a>
         <div class="dashboard-actions"><a href="/estudiante.html">Mi formación</a></div>
     </header>
-    <main>
-        <section class="article-reader"><span>Curso</span>
+    <main class="course-learning-main">
+        <section class="course-learning-hero"><span>Mi formación</span>
             <h1 id="course-title">Cargando…</h1>
-            <p class="article-summary" id="course-description"></p>
-            <p class="form-message" id="course-message"></p>
-            <div class="module-list" id="module-list"></div>
+            <p id="course-description"></p>
+            <p class="form-message" id="course-message" role="alert"></p>
         </section>
+        <button class="course-outline-toggle" id="course-outline-toggle" type="button" aria-expanded="false" aria-controls="course-outline">Ver módulos y lecciones</button>
+        <div class="course-learning-shell" id="course-learning-shell">
+            <aside class="course-outline" id="course-outline" aria-label="Módulos y lecciones del curso">
+                <div class="course-outline-heading"><span>Contenido</span><h2>Tu recorrido</h2></div>
+                <div id="course-outline-tree"></div>
+            </aside>
+            <section class="lesson-workspace" id="lesson-workspace" aria-live="polite"></section>
+        </div>
     </main>
 </body>
 

@@ -35,6 +35,7 @@ npm run migrate:p3
 npm run migrate:p4
 npm run migrate:p5
 npm run migrate:p6
+npm run migrate:p7
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -45,6 +46,17 @@ npm start
 ```
 
 En desarrollo, la aplicación estará disponible en `http://localhost:3000`.
+
+## Modo de mantenimiento
+
+Configura `MAINTENANCE_MODE=true` y reinicia Node.js para responder con la
+página `/mantenimiento.html` y estado HTTP 503. Las API responden un error JSON
+genérico con el mismo estado. `/api/health` permanece disponible y las sesiones
+de superusuario que ya estén autenticadas conservan acceso para verificación.
+
+Para reabrir el sitio configura `MAINTENANCE_MODE=false` y reinicia nuevamente
+la aplicación. No utilices esta opción como sustituto de copias de seguridad o
+de un procedimiento de despliegue reversible.
 
 ## Crear el superusuario
 
@@ -238,10 +250,14 @@ Profesores administran únicamente los cursos que crearon. Administradores y sup
 El seguimiento académico calcula el porcentaje a partir de las lecciones
 terminadas respecto del total de lecciones del curso. La ficha del estudiante
 incluye los datos disponibles de su cuenta y postulación. Cada matrícula
-mantiene un registro independiente de Supervisión, Práctica y asistencia a
-Terapia, con un indicador de cumplimiento y observaciones. El profesor solo
+mantiene un registro independiente de Supervisión, Práctica y Trabajo
+personal, con un indicador de cumplimiento y observaciones. El profesor solo
 puede consultar y actualizar estos campos en cursos creados por él; el
 administrador y el superusuario tienen alcance global.
+
+En “Mi curso”, el estudiante visualiza el estado de Supervisión, Práctica y
+Trabajo personal como indicadores de solo lectura. Las observaciones internas
+y la identidad del responsable no se incluyen en la respuesta estudiantil.
 
 ## Postulaciones al diplomado
 
@@ -367,6 +383,7 @@ archivo de entrada. Para instalaciones nuevas o cambios de modelo ejecuta:
 npm run db:init
 npm run migrate:p5
 npm run migrate:p6
+npm run migrate:p7
 ```
 
 En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,

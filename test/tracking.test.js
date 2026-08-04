@@ -12,18 +12,29 @@ test('normaliza el seguimiento por matrícula', () => {
     supervisionCompleted: true,
     supervisionNotes: '  Revisión semanal  ',
     practiceCompleted: false,
-    therapyAttendance: true
+    personalWorkCompleted: true
   }), {
     supervisionCompleted: true,
     supervisionNotes: 'Revisión semanal',
     practiceCompleted: false,
     practiceNotes: '',
-    therapyAttendance: true,
-    therapyNotes: ''
+    personalWorkCompleted: true,
+    personalWorkNotes: ''
   });
 });
 
 test('rechaza observaciones excesivas y no acepta valores truthy como checks', () => {
   assert.equal(supportPayload({ supervisionNotes: 'a'.repeat(5001) }), null);
   assert.equal(supportPayload({ supervisionCompleted: 'true' }).supervisionCompleted, false);
+});
+
+test('acepta temporalmente los nombres anteriores durante la transición P7', () => {
+  assert.deepEqual(supportPayload({ therapyAttendance: true, therapyNotes: ' Histórico ' }), {
+    supervisionCompleted: false,
+    supervisionNotes: '',
+    practiceCompleted: false,
+    practiceNotes: '',
+    personalWorkCompleted: true,
+    personalWorkNotes: 'Histórico'
+  });
 });

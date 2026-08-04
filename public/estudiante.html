@@ -11,6 +11,11 @@
   <header><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a><div class="dashboard-actions"><span id="session-email"></span><button id="logout" type="button">Cerrar sesión</button></div></header>
   <div class="dashboard-shell">
     <aside class="dashboard-sidebar" aria-label="Menú del espacio estudiantil">
+      <div class="dashboard-profile">
+        <div class="dashboard-avatar" id="student-avatar" aria-hidden="true">E</div>
+        <strong id="student-sidebar-name">Estudiante</strong>
+        <span id="student-sidebar-email">Mi formación</span>
+      </div>
       <p class="sidebar-label">Mi formación</p>
       <nav class="dashboard-nav">
         <button class="nav-item active" type="button" data-panel-target="available-panel">Cursos disponibles</button>
@@ -22,6 +27,7 @@
       <section class="dashboard-panel" id="available-panel">
         <div class="welcome"><span>Espacio estudiantil</span><h1>Hola, <span id="user-name">estudiante</span>.</h1><p>Explora la oferta de formación publicada.</p></div>
         <p class="form-message" id="student-message" role="alert"></p>
+        <div class="student-summary-grid" id="student-summary-grid" aria-label="Resumen de mi formación"></div>
         <div class="content-section"><div class="content-heading"><div><span>Formación</span><h2>Cursos disponibles</h2></div></div><div class="content-list" id="courses-list"></div></div>
       </section>
       <section class="content-section dashboard-panel" id="my-courses-panel" hidden>

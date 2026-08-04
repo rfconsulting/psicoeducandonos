@@ -197,6 +197,9 @@ CREATE TABLE IF NOT EXISTS enrollment_support_tracking (
   supervision_notes TEXT NULL,
   practice_completed BOOLEAN NOT NULL DEFAULT FALSE,
   practice_notes TEXT NULL,
+  personal_work_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  personal_work_notes TEXT NULL,
+  -- Compatibilidad temporal para despliegues anteriores a P7.
   therapy_attendance BOOLEAN NOT NULL DEFAULT FALSE,
   therapy_notes TEXT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
