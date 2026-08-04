@@ -6,6 +6,7 @@ const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
 const { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers, questionForClient } = require('../validation/lesson');
 const { courseForManagement: findManageableCourse } = require('../services/course-management');
+const { supportStatusForStudent } = require('../services/student-support');
 
 const router = express.Router();
 const clean = (value, max) => String(value || '').trim().slice(0, max);
@@ -16,19 +17,30 @@ router.get('/enrollments/my', requireRole('student'), async (req, res, next) => 
       `SELECT c.id,c.title,c.slug,c.description,u.full_name AS creator,
               e.status AS enrollmentStatus,e.enrolled_at AS enrolledAt,
               COUNT(l.id) AS lessonCount,
-              COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS completedLessons
+              COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS completedLessons,
+              MAX(COALESCE(est.supervision_completed,FALSE)) AS supervisionCompleted,
+              MAX(COALESCE(est.practice_completed,FALSE)) AS practiceCompleted,
+              MAX(COALESCE(est.personal_work_completed,FALSE)) AS personalWorkCompleted
        FROM course_enrollments e
        JOIN courses c ON c.id=e.course_id
        JOIN users u ON u.id=c.creator_id
        LEFT JOIN course_modules m ON m.course_id=c.id
        LEFT JOIN lessons l ON l.module_id=m.id
        LEFT JOIN lesson_progress lp ON lp.enrollment_id=e.id AND lp.lesson_id=l.id
+       LEFT JOIN enrollment_support_tracking est ON est.enrollment_id=e.id
        WHERE e.student_id=? AND e.status IN ('active','completed')
        GROUP BY c.id,c.title,c.slug,c.description,u.full_name,e.status,e.enrolled_at
        ORDER BY e.enrolled_at DESC`,
       [req.authUser.id]
     );
-    return res.json({ courses });
+    const studentCourses = courses.map(course => {
+      const { supervisionCompleted, practiceCompleted, personalWorkCompleted, ...publicCourse } = course;
+      return {
+        ...publicCourse,
+        requirements: supportStatusForStudent({ supervisionCompleted, practiceCompleted, personalWorkCompleted })
+      };
+    });
+    return res.json({ courses: studentCourses });
   } catch (error) { return next(error); }
 });
 

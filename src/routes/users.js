@@ -111,8 +111,10 @@ router.get('/students/:id/academic-record', requireCapability(CAPABILITIES.STUDE
        COALESCE(est.supervision_notes,'') AS supervisionNotes,
        COALESCE(est.practice_completed,FALSE) AS practiceCompleted,
        COALESCE(est.practice_notes,'') AS practiceNotes,
-       COALESCE(est.therapy_attendance,FALSE) AS therapyAttendance,
-       COALESCE(est.therapy_notes,'') AS therapyNotes,est.updated_at AS supportUpdatedAt
+       COALESCE(est.personal_work_completed,FALSE) AS personalWorkCompleted,
+       COALESCE(est.personal_work_notes,'') AS personalWorkNotes,
+       COALESCE(est.personal_work_completed,FALSE) AS therapyAttendance,
+       COALESCE(est.personal_work_notes,'') AS therapyNotes,est.updated_at AS supportUpdatedAt
        FROM course_enrollments ce
        JOIN courses c ON c.id=ce.course_id
        JOIN users creator ON creator.id=c.creator_id
@@ -124,7 +126,8 @@ router.get('/students/:id/academic-record', requireCapability(CAPABILITIES.STUDE
     records.forEach(record => {
       record.supervisionCompleted = Boolean(record.supervisionCompleted);
       record.practiceCompleted = Boolean(record.practiceCompleted);
-      record.therapyAttendance = Boolean(record.therapyAttendance);
+      record.personalWorkCompleted = Boolean(record.personalWorkCompleted);
+      record.therapyAttendance = record.personalWorkCompleted;
       record.progress = progressPercentage(record.completedLessons, record.totalLessons);
     });
     const [applications] = await pool.execute(
@@ -158,21 +161,24 @@ router.patch('/enrollments/:id/support', requireCapability(CAPABILITIES.STUDENT_
     await withTransaction(async connection => {
       await connection.execute(
         `INSERT INTO enrollment_support_tracking
-         (enrollment_id,updated_by,supervision_completed,supervision_notes,practice_completed,practice_notes,therapy_attendance,therapy_notes)
-         VALUES (?,?,?,?,?,?,?,?)
+         (enrollment_id,updated_by,supervision_completed,supervision_notes,practice_completed,practice_notes,
+          personal_work_completed,personal_work_notes,therapy_attendance,therapy_notes)
+         VALUES (?,?,?,?,?,?,?,?,?,?)
          ON DUPLICATE KEY UPDATE updated_by=VALUES(updated_by),
          supervision_completed=VALUES(supervision_completed),supervision_notes=VALUES(supervision_notes),
          practice_completed=VALUES(practice_completed),practice_notes=VALUES(practice_notes),
+         personal_work_completed=VALUES(personal_work_completed),personal_work_notes=VALUES(personal_work_notes),
          therapy_attendance=VALUES(therapy_attendance),therapy_notes=VALUES(therapy_notes)`,
         [enrollmentId, req.authUser.id, payload.supervisionCompleted, payload.supervisionNotes,
-          payload.practiceCompleted, payload.practiceNotes, payload.therapyAttendance, payload.therapyNotes]
+          payload.practiceCompleted, payload.practiceNotes, payload.personalWorkCompleted, payload.personalWorkNotes,
+          payload.personalWorkCompleted, payload.personalWorkNotes]
       );
       await audit(req, 'enrollment_support_updated', 'course_enrollment', enrollmentId, {
         courseId: enrollments[0].courseId,
         studentId: enrollments[0].studentId,
         supervisionCompleted: payload.supervisionCompleted,
         practiceCompleted: payload.practiceCompleted,
-        therapyAttendance: payload.therapyAttendance
+        personalWorkCompleted: payload.personalWorkCompleted
       }, { db: connection, required: true });
     });
     return res.json({ message: 'Acompañamiento del curso actualizado.' });
