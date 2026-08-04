@@ -13,6 +13,13 @@ function integer(name, fallback, min, max) {
   return value;
 }
 
+function boolean(name, fallback = false) {
+  const value = String(process.env[name] ?? fallback).trim().toLowerCase();
+  if (['true', '1'].includes(value)) return true;
+  if (['false', '0'].includes(value)) return false;
+  throw new Error(`${name} debe ser true o false.`);
+}
+
 function optionalUrl(name) {
   const value = String(process.env[name] || '').trim();
   if (!value) return '';
@@ -51,7 +58,8 @@ const env = {
   emailFrom: String(process.env.EMAIL_FROM || '').trim(),
   securityAlertEmail: String(process.env.SECURITY_ALERT_EMAIL || '').trim(),
   mfaEncryptionKey: String(process.env.MFA_ENCRYPTION_KEY || ''),
-  dataRetentionDays: integer('DATA_RETENTION_DAYS', 730, 30, 3650)
+  dataRetentionDays: integer('DATA_RETENTION_DAYS', 730, 30, 3650),
+  maintenanceMode: boolean('MAINTENANCE_MODE')
 };
 
 if (env.emailProvider !== 'resend') throw new Error('EMAIL_PROVIDER debe ser resend.');

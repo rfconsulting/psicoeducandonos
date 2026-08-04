@@ -11,6 +11,7 @@ const pool = require('./config/database');
 const { issueCsrfToken } = require('./middleware/security');
 const { requireRole } = require('./middleware/security');
 const logger = require('./services/logger');
+const { createMaintenanceMiddleware } = require('./middleware/maintenance');
 
 const app = express();
 if (env.trustProxy) app.set('trust proxy', env.trustProxy);
@@ -84,6 +85,11 @@ app.use(session({
   saveUninitialized: false,
   rolling: true,
   cookie: { httpOnly: true, secure: env.isProduction, sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 }
+}));
+
+app.use(createMaintenanceMiddleware({
+  enabled: env.maintenanceMode,
+  publicDirectory: path.join(__dirname, '..', 'public')
 }));
 
 const limiterOptions = { windowMs: 15 * 60 * 1000, standardHeaders: 'draft-8', legacyHeaders: false };

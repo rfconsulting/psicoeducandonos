@@ -47,6 +47,17 @@ npm start
 
 En desarrollo, la aplicación estará disponible en `http://localhost:3000`.
 
+## Modo de mantenimiento
+
+Configura `MAINTENANCE_MODE=true` y reinicia Node.js para responder con la
+página `/mantenimiento.html` y estado HTTP 503. Las API responden un error JSON
+genérico con el mismo estado. `/api/health` permanece disponible y las sesiones
+de superusuario que ya estén autenticadas conservan acceso para verificación.
+
+Para reabrir el sitio configura `MAINTENANCE_MODE=false` y reinicia nuevamente
+la aplicación. No utilices esta opción como sustituto de copias de seguridad o
+de un procedimiento de despliegue reversible.
+
 ## Crear el superusuario
 
 El superusuario inicial se crea mediante un script local. No existe registro público para este rol.
