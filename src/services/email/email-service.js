@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { passwordResetTemplate, securityAlertTemplate } = require('./templates');
+const { passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate } = require('./templates');
 
 class EmailService {
   constructor({ provider, from, appPublicUrl }) {
@@ -27,6 +27,25 @@ class EmailService {
     const resetUrl = this.createPasswordResetUrl(token);
     const message = passwordResetTemplate({ resetUrl, expiresInMinutes });
     const idempotencyKey = `password-reset/${crypto.createHash('sha256').update(token).digest('hex')}`;
+    await this.provider.send({ from: this.from, to, ...message, idempotencyKey });
+    return true;
+  }
+
+  createEmailVerificationUrl(token) {
+    if (!/^[a-f0-9]{64}$/i.test(String(token))) throw new TypeError('Token de verificación inválido.');
+    const url = new URL('/verificar-email.html', this.appPublicUrl);
+    url.searchParams.set('token', token);
+    if (url.origin !== this.appPublicUrl.origin) throw new Error('El enlace de verificación no pertenece a APP_PUBLIC_URL.');
+    return url.toString();
+  }
+
+  async sendEmailVerification({ to, token, expiresInHours = 24 }) {
+    if (!Number.isInteger(expiresInHours) || expiresInHours < 1 || expiresInHours > 168) {
+      throw new TypeError('La expiración del enlace es inválida.');
+    }
+    const verificationUrl = this.createEmailVerificationUrl(token);
+    const message = emailVerificationTemplate({ verificationUrl, expiresInHours });
+    const idempotencyKey = `email-verification/${crypto.createHash('sha256').update(token).digest('hex')}`;
     await this.provider.send({ from: this.from, to, ...message, idempotencyKey });
     return true;
   }

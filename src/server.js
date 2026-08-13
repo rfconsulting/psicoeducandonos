@@ -96,6 +96,7 @@ const limiterOptions = { windowMs: 15 * 60 * 1000, standardHeaders: 'draft-8', l
 const loginLimiter = rateLimit({ ...limiterOptions, limit: 10, message: { error: 'Demasiados intentos de acceso. Espera unos minutos.' } });
 const applicationLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas postulaciones. Espera unos minutos.' } });
 const recoveryLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas solicitudes de recuperación. Espera unos minutos.' } });
+const registrationLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas solicitudes. Espera unos minutos.' } });
 const mfaLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 20,
@@ -108,6 +109,8 @@ const apiLimiter = rateLimit({ ...limiterOptions, limit: 300, message: { error: 
 app.use('/api', apiLimiter);
 app.get('/api/csrf-token', issueCsrfToken);
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/register', registrationLimiter);
+app.use('/api/auth/verification/resend', registrationLimiter);
 app.post('/api/applications', applicationLimiter);
 app.use('/api/auth/forgot-password', recoveryLimiter);
 app.use('/api/auth/reset-password', recoveryLimiter);
@@ -139,7 +142,6 @@ app.get(['/dashboard', '/dashboard.html'], requireRole('superuser', 'administrat
 app.get(['/estudiante', '/estudiante.html'], requireRole('student'), (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'estudiante.html'));
 });
-app.get(['/registro', '/registro.html'], (_req, res) => res.redirect(302, '/postulacion.html'));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'], maxAge: env.isProduction ? '1h' : 0 }));
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));

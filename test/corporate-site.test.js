@@ -24,7 +24,7 @@ test('la landing del diplomado permanece en una URL propia y enlazada', () => {
 });
 
 test('la propuesta incluye advertencia educativa y adaptación móvil', () => {
-  assert.match(corporate, /no sustituyen evaluación, diagnóstico, psicoterapia ni atención de emergencia/);
+  assert.match(corporate, /no sustituyen evaluación, diagnóstico, psicoterapia\s+ni atención de emergencia/);
   assert.match(styles, /@media\(max-width:560px\).*\.corporate-hero/s);
 });
 

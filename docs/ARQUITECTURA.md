@@ -58,7 +58,7 @@ El frontend se sirve desde la misma aplicación y usa `fetch` same-origin. No ex
 │   └── *.js
 ├── scripts/
 │   ├── create-superuser.js
-│   ├── migrate-p0.js ... migrate-p7.js
+│   ├── migrate-p0.js ... migrate-p8.js
 │   ├── build-hostinger-archive.js
 │   ├── retention.js
 │   ├── check-js.js
@@ -382,7 +382,12 @@ globales anteriores, pero no determina el progreso académico calculado.
 
 La creación es pública, con CSRF, validación y rate limit específico. La lectura y revisión requieren la capacidad `application:manage`, asignada únicamente a superusuario y administradores.
 
-Al cambiar el estado a `approved`, una transacción bloquea la postulación, vincula una cuenta estudiantil existente o crea una nueva y registra la auditoría. Las cuentas nuevas reciben una credencial aleatoria desconocida y un token de establecimiento de contraseña almacenado como hash. El token se entrega mediante Resend y vence en 24 horas. `/registro.html` redirige a la postulación y `POST /api/auth/register` no existe.
+Al cambiar el estado a `approved`, una transacción bloquea la postulación, vincula una cuenta estudiantil existente o crea una nueva y registra la auditoría. Las cuentas nuevas reciben una credencial aleatoria desconocida y un token de establecimiento de contraseña almacenado como hash. El token se entrega mediante Resend y vence en 24 horas.
+
+Desde P8 también existe registro público mínimo en `/registro.html`. La cuenta se
+crea con rol `student`, permanece sin verificar y no puede iniciar sesión hasta
+consumir un token de verificación de correo. La postulación anterior continúa
+disponible durante la transición y no se elimina su histórico.
 
 ## 12. Integridad y transacciones
 
@@ -536,6 +541,7 @@ npm run migrate:p4
 npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
+npm run migrate:p8
 npm run lint
 npm test
 npm audit --omit=dev

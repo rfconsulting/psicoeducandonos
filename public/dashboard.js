@@ -23,7 +23,10 @@ const activityNames={
   mfa_challenge_limited:'Desafío MFA limitado temporalmente',
   application_submitted:'Postulación recibida',application_reviewed:'Postulación revisada',
   application_duplicate_ignored:'Postulación repetida ignorada',
-  student_account_created_from_application:'Cuenta estudiantil creada desde postulación'
+  student_account_created_from_application:'Cuenta estudiantil creada desde postulación',
+  public_registration_created:'Cuenta pública creada',public_registration_duplicate_ignored:'Registro duplicado ignorado',
+  email_verification_renewed:'Verificación de correo renovada',email_verification_sent:'Verificación de correo enviada',
+  email_verification_delivery_failed:'Fallo al entregar verificación',email_verified:'Correo verificado'
 };
 
 function setupNavigation(){

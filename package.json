@@ -6,9 +6,11 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "prestart": "node scripts/init-database.js && node scripts/migrate-p5.js && node scripts/migrate-p6.js && node scripts/migrate-p7.js && node scripts/bootstrap-superuser.js",
+    "prestart": "npm run db:init && npm run db:migrate && node scripts/bootstrap-superuser.js",
     "start": "node src/server.js",
     "db:init": "node scripts/init-database.js",
+    "db:migrate": "npm run migrate:p0 && npm run migrate:p1 && npm run migrate:p2 && npm run migrate:p3 && npm run migrate:p4 && npm run migrate:p5 && npm run migrate:p6 && npm run migrate:p7 && npm run migrate:p8",
+    "db:verify": "npm run db:init && npm run db:migrate && npm run db:migrate",
     "create-superuser": "node scripts/create-superuser.js",
     "migrate:p0": "node scripts/migrate-p0.js",
     "migrate:p1": "node scripts/migrate-p1.js",
@@ -18,6 +20,7 @@
     "migrate:p5": "node scripts/migrate-p5.js",
     "migrate:p6": "node scripts/migrate-p6.js",
     "migrate:p7": "node scripts/migrate-p7.js",
+    "migrate:p8": "node scripts/migrate-p8.js",
     "test": "node --test",
     "lint": "node scripts/check-js.js",
     "check:secrets": "node scripts/check-secrets.js",
@@ -35,11 +38,14 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-mysql-session": "^3.0.3",
-    "express-rate-limit": "^8.0.1",
+    "express-rate-limit": "^8.6.2",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "mysql2": "^3.14.3",
     "qrcode": "^1.5.4",
     "resend": "^6.18.0"
+  },
+  "overrides": {
+    "ip-address": "^10.5.0"
   }
 }

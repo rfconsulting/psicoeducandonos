@@ -36,6 +36,7 @@ npm run migrate:p4
 npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
+npm run migrate:p8
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -105,7 +106,9 @@ El rol nunca se selecciona en el formulario. Express lo obtiene de MySQL despué
 - `superuser`, `administrator`, `teacher` y `writer` son dirigidos a `/dashboard.html`.
 - `student` es dirigido a `/estudiante.html`.
 
-No existe registro público directo. Las personas externas comienzan en `/postulacion.html`; la cuenta `student` se crea o vincula únicamente cuando superusuario o administrador aprueban la postulación.
+Existe registro público mínimo en `/registro.html`: nombre, correo y contraseña.
+La cuenta `student` debe verificar su correo antes de iniciar sesión. La ruta
+`/postulacion.html` permanece disponible como flujo legado durante la transición.
 
 ## Paneles y navegación
 
@@ -384,6 +387,7 @@ npm run db:init
 npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
+npm run migrate:p8
 ```
 
 En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,

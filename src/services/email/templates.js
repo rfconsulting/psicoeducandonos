@@ -34,6 +34,32 @@ function passwordResetTemplate({ resetUrl, expiresInMinutes }) {
   return { subject, text, html };
 }
 
+function emailVerificationTemplate({ verificationUrl, expiresInHours }) {
+  const safeUrl = escapeHtml(verificationUrl);
+  const safeExpiry = escapeHtml(expiresInHours);
+  const subject = 'Verifica tu correo de Psicoeducándonos';
+  const text = [
+    'Verifica tu correo electrónico',
+    '',
+    `Este enlace de un solo uso vence en ${expiresInHours} horas:`,
+    verificationUrl,
+    '',
+    'Si no creaste esta cuenta, ignora este mensaje. Nunca compartas este enlace.'
+  ].join('\n');
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>${escapeHtml(subject)}</title></head><body style="margin:0;background:#f4f4f4;font-family:Arial,sans-serif;color:#0f1a20">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border-radius:16px;overflow:hidden">
+<tr><td style="background:#0f1a20;color:#fff;padding:28px 32px;font-size:22px;font-weight:bold">Psicoeducándonos</td></tr>
+<tr><td style="padding:32px"><h1 style="margin:0 0 16px;font-size:28px">Verifica tu correo</h1>
+<p style="font-size:16px;line-height:1.6">Confirma tu dirección para activar el acceso a tu cuenta.</p>
+<p style="margin:28px 0"><a href="${safeUrl}" style="display:inline-block;background:#0f1a20;color:#fff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:bold">Verificar mi correo</a></p>
+<p style="font-size:14px;line-height:1.6">El enlace es de un solo uso y vence en <strong>${safeExpiry} horas</strong>.</p>
+<p style="font-size:12px;line-height:1.5;color:#465159;word-break:break-all">Si el botón no funciona, copia esta dirección:<br>${safeUrl}</p>
+</td></tr></table></td></tr></table></body></html>`;
+  return { subject, text, html };
+}
+
 function securityAlertTemplate({ type, fields, occurredAt }) {
   const safeType = escapeHtml(type);
   const entries = Object.entries(fields)
@@ -53,4 +79,4 @@ function securityAlertTemplate({ type, fields, occurredAt }) {
   };
 }
 
-module.exports = { escapeHtml, passwordResetTemplate, securityAlertTemplate };
+module.exports = { escapeHtml, passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate };

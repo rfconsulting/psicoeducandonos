@@ -32,6 +32,22 @@ test('restringe el enlace exclusivamente a APP_PUBLIC_URL', () => {
   }), /origen público/);
 });
 
+test('envía verificación con enlace same-origin y token oculto en idempotencia', async () => {
+  const sent = [];
+  const service = new EmailService({
+    provider: { send: async message => sent.push(message) },
+    from: 'cuentas@example.org',
+    appPublicUrl: 'https://psicoeducandonos.org'
+  });
+  assert.equal(await service.sendEmailVerification({ to: 'persona@example.net', token }), true);
+  const url = new URL(service.createEmailVerificationUrl(token));
+  assert.equal(url.origin, 'https://psicoeducandonos.org');
+  assert.equal(url.pathname, '/verificar-email.html');
+  assert.match(sent[0].text, /vence en 24 horas/);
+  assert.match(sent[0].html, /Verificar mi correo/);
+  assert.ok(!sent[0].idempotencyKey.includes(token));
+});
+
 test('rechaza inyección HTML en valores dinámicos', async () => {
   let sent;
   const service = new EmailService({

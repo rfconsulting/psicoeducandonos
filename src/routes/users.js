@@ -27,7 +27,7 @@ router.post('/', requireCapability(CAPABILITIES.USER_CREATE), verifyCsrf, async 
     const hash = await bcrypt.hash(password, 12);
     try {
       const id = await withTransaction(async (connection) => {
-        const [result] = await connection.execute('INSERT INTO users (full_name,email,password_hash,role,must_change_password,email_verified_at) VALUES (?,?,?,?,TRUE,UTC_TIMESTAMP())', [fullName, email, hash, role]);
+        const [result] = await connection.execute("INSERT INTO users (full_name,email,password_hash,role,registration_source,must_change_password,email_verified_at) VALUES (?,?,?,?,'admin',TRUE,UTC_TIMESTAMP())", [fullName, email, hash, role]);
         await audit(req, 'user_created', 'user', result.insertId, { role }, { db: connection, required: true });
         return result.insertId;
       });

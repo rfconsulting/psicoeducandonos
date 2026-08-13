@@ -119,7 +119,7 @@ Se definieron cinco roles:
 - Todos usan el mismo formulario de acceso.
 - El rol nunca se selecciona durante el login.
 - El rol se obtiene desde MySQL después de validar la contraseña.
-- No existe registro público directo; las cuentas estudiantiles nacen de postulaciones aprobadas.
+- P8 habilita registro público mínimo con verificación obligatoria de correo; las postulaciones aprobadas continúan siendo compatibles durante la transición.
 - Administradores no pueden crear ni promover superusuarios.
 - Solo el superusuario puede cambiar roles.
 
@@ -366,6 +366,7 @@ Las migraciones se diseñaron para ser repetibles:
 | `migrate:p5` | recursos y comprobación formativa de lecciones |
 | `migrate:p6` | acompañamiento por matrícula |
 | `migrate:p7` | Trabajo personal y compatibilidad con datos históricos |
+| `migrate:p8` | Origen trazable de cuentas y habilitación del registro público |
 
 Orden requerido:
 
@@ -378,6 +379,7 @@ npm run migrate:p4
 npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
+npm run migrate:p8
 ```
 
 `schema.sql` representa el esquema completo para instalaciones nuevas.
@@ -405,7 +407,7 @@ npm run check:secrets
 
 ## 15. Decisiones que deben preservarse
 
-1. Mantener deshabilitado el registro público directo de cuentas.
+1. Mantener registro público mínimo, verificación obligatoria y respuestas no enumerativas.
 2. Nunca confiar únicamente en datos de la sesión.
 3. Mantener SQL parametrizado.
 4. Usar transacción con auditoría en cambios críticos.

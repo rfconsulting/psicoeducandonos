@@ -29,9 +29,10 @@ test('el resumen del profesor se limita a sus cursos y artículos', () => {
 
 test('el menú conserva contraste después de las reglas del tema base', () => {
   const css = fs.readFileSync(path.join(root, 'public', 'auth.css'), 'utf8');
-  const baseOverride = css.lastIndexOf('.dashboard-sidebar{background:var(--cream)}');
-  const workspaceOverride = css.indexOf('.dashboard:has(.dashboard-shell) .dashboard-sidebar{background:linear-gradient', baseOverride);
+  const compactCss = css.replace(/\s+/g, '');
+  const baseOverride = compactCss.lastIndexOf('.dashboard-sidebar{background:var(--cream)}');
+  const workspaceOverride = compactCss.indexOf('.dashboard:has(.dashboard-shell).dashboard-sidebar{background:linear-gradient', baseOverride);
   assert.ok(workspaceOverride > baseOverride);
-  assert.match(css.slice(workspaceOverride), /\.nav-item\{color:#e6f0ee\}/);
-  assert.match(css.slice(workspaceOverride), /\.nav-item\.active\{background:var\(--cream\);color:var\(--deep\)\}/);
+  assert.match(compactCss.slice(workspaceOverride), /\.nav-item\{color:#e6f0ee\}/);
+  assert.match(compactCss.slice(workspaceOverride), /\.nav-item\.active\{background:var\(--cream\);color:var\(--deep\)\}/);
 });

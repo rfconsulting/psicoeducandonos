@@ -19,8 +19,8 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
   await pool.execute(
     `INSERT INTO users
-     (full_name,email,password_hash,role,status,must_change_password,email_verified_at)
-     VALUES (?,?,?,'superuser','active',TRUE,UTC_TIMESTAMP())`,
+     (full_name,email,password_hash,role,status,registration_source,must_change_password,email_verified_at)
+     VALUES (?,?,?,'superuser','active','admin',TRUE,UTC_TIMESTAMP())`,
     [fullName, email, passwordHash]
   );
   console.log('Superusuario inicial creado. Deberá cambiar su contraseña al ingresar.');

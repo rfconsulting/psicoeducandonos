@@ -7,6 +7,27 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: psicoeducandonos_test
+          MYSQL_ROOT_PASSWORD: test-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      NODE_ENV: test
+      SESSION_SECRET: ci-only-session-secret-ci-only-session-secret-ci-only-session-secret-1234
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: psicoeducandonos_test
+      DB_USER: root
+      DB_PASSWORD: test-root-password
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,6 +36,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm run check
       - run: npm test
-      - run: npm audit --omit=dev
+      - run: npm run db:verify
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run check:secrets

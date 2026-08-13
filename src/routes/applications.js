@@ -144,8 +144,8 @@ router.patch('/:id/review', requireCapability(CAPABILITIES.APPLICATION_MANAGE), 
         else {
           const unusablePassword = await bcrypt.hash(crypto.randomBytes(48).toString('base64url'), 12);
           const [created] = await connection.execute(
-            `INSERT INTO users (full_name,email,password_hash,role,status,email_verified_at,must_change_password)
-             VALUES (?,? ,?,'student','active',UTC_TIMESTAMP(),FALSE)`,
+            `INSERT INTO users (full_name,email,password_hash,role,status,registration_source,email_verified_at,must_change_password)
+             VALUES (?,? ,?,'student','active','application',UTC_TIMESTAMP(),FALSE)`,
             [application.full_name, application.email, unusablePassword]
           );
           userId = created.insertId;

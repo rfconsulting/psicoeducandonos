@@ -5,10 +5,12 @@ const pool = require('../config/database');
 const { verifyCsrf, requireAuth } = require('../middleware/security');
 const audit = require('../services/audit');
 const deliverPasswordReset = require('../services/password-reset');
-const { normalizeEmail, validPassword } = require('../validation/auth');
+const deliverEmailVerification = require('../services/email-verification');
+const { normalizeEmail, cleanName, validEmail, validPassword } = require('../validation/auth');
 const withTransaction = require('../services/transaction');
 const mfa = require('../services/mfa');
 const securityAlert = require('../services/security-alert');
+const { waitForEquivalentAuthResponse } = require('../services/public-auth-response');
 const { ROLES } = require('../constants/access');
 const {
   resetMfaAttempts,
@@ -21,9 +23,126 @@ const {
   hashResetToken,
   genericForgotPasswordResponse
 } = require('../services/password-reset-token');
+const {
+  EMAIL_VERIFICATION_EXPIRES_HOURS,
+  generateVerificationToken,
+  hashVerificationToken,
+  isVerificationToken,
+  genericRegistrationResponse,
+  genericResendResponse
+} = require('../services/email-verification-token');
 
 const router = express.Router();
 const DUMMY_HASH = '$2b$12$2b2kYf7n1Thf0Wwq3QxWQO0BRYxRPRYSrxrYrpy0V9HDq4ZgFQYje';
+
+async function storeVerificationToken(connection, userId) {
+  const token = generateVerificationToken();
+  await connection.execute(
+    'UPDATE email_verification_tokens SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL',
+    [userId]
+  );
+  await connection.execute(
+    `INSERT INTO email_verification_tokens (user_id,token_hash,expires_at)
+     VALUES (?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL ${EMAIL_VERIFICATION_EXPIRES_HOURS} HOUR))`,
+    [userId, hashVerificationToken(token)]
+  );
+  return token;
+}
+
+router.post('/register', verifyCsrf, async (req, res, next) => {
+  const startedAt = Date.now();
+  try {
+    const fullName = cleanName(req.body.fullName);
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+    if (fullName.length < 2 || fullName.length > 120 || !validEmail(email) || !validPassword(password)) {
+      return res.status(422).json({ error: 'Revisa el nombre, correo y la política de contraseña.' });
+    }
+    const passwordHash = await bcrypt.hash(password, 12);
+    const registration = await withTransaction(async connection => {
+      const [existing] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1 FOR UPDATE', [email]);
+      if (existing[0]) {
+        await audit(req, 'public_registration_duplicate_ignored', 'user', existing[0].id, null, { db: connection, required: true });
+        return null;
+      }
+      const [result] = await connection.execute(
+        `INSERT INTO users (full_name,email,password_hash,role,status,registration_source)
+         VALUES (?,?,?,'student','active','public')`,
+        [fullName, email, passwordHash]
+      );
+      const token = await storeVerificationToken(connection, result.insertId);
+      await audit(req, 'public_registration_created', 'user', result.insertId, null, { db: connection, required: true });
+      return { userId: result.insertId, email, token };
+    });
+    if (registration) {
+      try {
+        await deliverEmailVerification(registration.email, registration.token, EMAIL_VERIFICATION_EXPIRES_HOURS);
+        await audit(req, 'email_verification_sent', 'user', registration.userId);
+      } catch (deliveryError) {
+        await audit(req, 'email_verification_delivery_failed', 'user', registration.userId);
+        console.error('Falló la entrega de verificación:', deliveryError.message);
+      }
+    }
+    await waitForEquivalentAuthResponse(startedAt);
+    return res.status(202).json(genericRegistrationResponse());
+  } catch (error) { return next(error); }
+});
+
+router.post('/verification/resend', verifyCsrf, async (req, res, next) => {
+  const startedAt = Date.now();
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!validEmail(email)) {
+      await waitForEquivalentAuthResponse(startedAt);
+      return res.status(202).json(genericResendResponse());
+    }
+    const pending = await withTransaction(async connection => {
+      const [users] = await connection.execute(
+        "SELECT id,email FROM users WHERE email=? AND status='active' AND email_verified_at IS NULL LIMIT 1 FOR UPDATE",
+        [email]
+      );
+      if (!users[0]) return null;
+      const token = await storeVerificationToken(connection, users[0].id);
+      await audit(req, 'email_verification_renewed', 'user', users[0].id, null, { db: connection, required: true });
+      return { ...users[0], token };
+    });
+    if (pending) {
+      try {
+        await deliverEmailVerification(pending.email, pending.token, EMAIL_VERIFICATION_EXPIRES_HOURS);
+        await audit(req, 'email_verification_sent', 'user', pending.id);
+      } catch (deliveryError) {
+        await audit(req, 'email_verification_delivery_failed', 'user', pending.id);
+        console.error('Falló el reenvío de verificación:', deliveryError.message);
+      }
+    }
+    await waitForEquivalentAuthResponse(startedAt);
+    return res.status(202).json(genericResendResponse());
+  } catch (error) { return next(error); }
+});
+
+router.post('/verify-email', verifyCsrf, async (req, res, next) => {
+  try {
+    const token = String(req.body.token || '');
+    if (!isVerificationToken(token)) return res.status(400).json({ error: 'El enlace es inválido o ha expirado.' });
+    const verified = await withTransaction(async connection => {
+      const [tokens] = await connection.execute(
+        `SELECT t.id,t.user_id FROM email_verification_tokens t
+         JOIN users u ON u.id=t.user_id
+         WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at>UTC_TIMESTAMP()
+           AND u.status='active' AND u.email_verified_at IS NULL
+         LIMIT 1 FOR UPDATE`,
+        [hashVerificationToken(token)]
+      );
+      if (!tokens[0]) return false;
+      await connection.execute('UPDATE users SET email_verified_at=UTC_TIMESTAMP() WHERE id=?', [tokens[0].user_id]);
+      await connection.execute('UPDATE email_verification_tokens SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL', [tokens[0].user_id]);
+      await audit(req, 'email_verified', 'user', tokens[0].user_id, null, { db: connection, required: true });
+      return true;
+    });
+    if (!verified) return res.status(400).json({ error: 'El enlace es inválido o ha expirado.' });
+    return res.json({ message: 'Correo verificado. Ya puedes iniciar sesión.', redirect: '/login.html' });
+  } catch (error) { return next(error); }
+});
 
 router.post('/login', verifyCsrf, async (req, res, next) => {
   try {

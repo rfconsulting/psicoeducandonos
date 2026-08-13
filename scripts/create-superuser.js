@@ -25,7 +25,7 @@ async function main() {
       );
     } else {
       await connection.execute(
-        "INSERT INTO users (full_name,email,password_hash,role,must_change_password,email_verified_at) VALUES (?,?,?,'superuser',FALSE,UTC_TIMESTAMP())",
+        "INSERT INTO users (full_name,email,password_hash,role,registration_source,must_change_password,email_verified_at) VALUES (?,?,?,'superuser','admin',FALSE,UTC_TIMESTAMP())",
         [fullName, email, hash]
       );
     }

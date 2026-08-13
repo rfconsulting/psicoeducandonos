@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('superuser','administrator','writer','teacher','student') NOT NULL DEFAULT 'student',
   status ENUM('active','suspended') NOT NULL DEFAULT 'active',
+  registration_source ENUM('admin','application','public','legacy') NOT NULL DEFAULT 'legacy',
   auth_version INT UNSIGNED NOT NULL DEFAULT 1,
   must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
   email_verified_at DATETIME NULL,

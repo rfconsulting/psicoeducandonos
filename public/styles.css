@@ -1158,7 +1158,7 @@ body :is(h1, h2, h3, h4, .large-copy, .quote p, .event-date strong) {
 }
 
 .brand-logo {
-    content: url("assets/logo.png");
+    content: url("assets/logo%20suelto1.jpg");
     width: clamp(190px, 18vw, 280px);
     height: auto;
     object-fit: contain;
