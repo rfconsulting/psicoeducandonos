@@ -58,7 +58,7 @@ El frontend se sirve desde la misma aplicación y usa `fetch` same-origin. No ex
 │   └── *.js
 ├── scripts/
 │   ├── create-superuser.js
-│   ├── migrate-p0.js ... migrate-p8.js
+│   ├── migrate-p0.js ... migrate-p10.js
 │   ├── build-hostinger-archive.js
 │   ├── retention.js
 │   ├── check-js.js
@@ -542,6 +542,8 @@ npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
 npm run migrate:p8
+npm run migrate:p9
+npm run migrate:p10
 npm run lint
 npm test
 npm audit --omit=dev

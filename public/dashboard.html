@@ -31,6 +31,7 @@
         <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
         <button class="nav-item" type="button" data-panel-target="admin-section" id="users-nav" hidden>Usuarios</button>
         <button class="nav-item" type="button" data-panel-target="applications-section" id="applications-nav" hidden>Postulaciones</button>
+        <button class="nav-item" type="button" data-panel-target="profile-reviews-section" id="profile-reviews-nav" hidden>Validación de estudiantes</button>
         <button class="nav-item" type="button" data-panel-target="audit-section" id="audit-nav" hidden>Registro de actividad</button>
       </nav>
     </aside>
@@ -198,6 +199,12 @@
       <p class="form-message" id="applications-message" role="alert"></p>
       <div class="applications-list" id="applications-list"></div>
       <button class="small-button audit-more" id="applications-more" type="button" hidden>Cargar anteriores</button>
+    </section>
+
+    <section class="admin-section dashboard-panel" id="profile-reviews-section" hidden>
+      <div class="content-heading"><div><span>Onboarding</span><h2>Validación de estudiantes</h2></div><p>Revisa perfiles enviados y conserva un historial de cada decisión.</p></div>
+      <form class="application-filters" id="profile-review-filters"><div class="field"><label>Buscar</label><input name="search" maxlength="120" placeholder="Nombre o correo"></div><div class="field"><label>Estado</label><select name="status"><option value="submitted" selected>Pendiente</option><option value="under_review">En revisión</option><option value="changes_requested">Requiere correcciones</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option><option value="">Todos</option></select></div><div class="application-filter-actions"><button class="small-button" type="submit">Filtrar</button><button class="small-button secondary-button" id="profile-reviews-clear" type="button">Limpiar</button></div></form>
+      <p class="form-message" id="profile-reviews-message" role="alert"></p><div class="applications-list" id="profile-reviews-list"></div><button class="small-button audit-more" id="profile-reviews-more" type="button" hidden>Cargar anteriores</button>
     </section>
 
     <section class="admin-section dashboard-panel" id="audit-section" hidden>

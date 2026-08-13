@@ -84,6 +84,21 @@ function requireCapability(capability) {
   });
 }
 
+function requireApprovedStudent(req, res, next) {
+  return validateSession(req, res, async (error) => {
+    if (error) return next(error);
+    if (req.authUser.role !== ROLES.STUDENT) return res.status(403).json({ error: 'Esta acción requiere una cuenta estudiantil.' });
+    try {
+      const [rows] = await pool.execute(
+        "SELECT 1 FROM student_profiles WHERE user_id=? AND review_status='approved' LIMIT 1",
+        [req.authUser.id]
+      );
+      if (!rows.length) return res.status(403).json({ error: 'Tu perfil aún no ha sido aprobado.', code: 'STUDENT_APPROVAL_REQUIRED' });
+      return next();
+    } catch (queryError) { return next(queryError); }
+  });
+}
+
 function issueCsrfToken(req, res) {
   if (!req.session.csrfToken) req.session.csrfToken = env.randomToken();
   res.json({ csrfToken: req.session.csrfToken });
@@ -99,6 +114,6 @@ function verifyCsrf(req, res, next) {
 }
 
 module.exports = {
-  requireAuth, requireRole, requireCapability, issueCsrfToken, verifyCsrf,
+  requireAuth, requireRole, requireCapability, requireApprovedStudent, issueCsrfToken, verifyCsrf,
   isPasswordChangeRoute, isMfaBootstrapRoute, isSessionUserCurrent
 };

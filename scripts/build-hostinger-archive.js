@@ -14,6 +14,8 @@ const PRODUCTION_SCRIPTS = new Set([
   'migrate-p6.js',
   'migrate-p7.js',
   'migrate-p8.js',
+  'migrate-p9.js',
+  'migrate-p10.js',
   'retention.js'
 ]);
 const SECRET_ENV_KEYS = [
@@ -63,7 +65,7 @@ function assertArtifactSafe(root, knownSecretValues = secretValues()) {
 function productionPackage(sourcePackage) {
   const allowedScripts = [
     'start', 'db:init', 'migrate:p0', 'migrate:p1', 'migrate:p2', 'migrate:p3',
-    'migrate:p4', 'migrate:p5', 'migrate:p6', 'migrate:p7', 'migrate:p8', 'retention:dry', 'retention:run'
+    'migrate:p4', 'migrate:p5', 'migrate:p6', 'migrate:p7', 'migrate:p8', 'migrate:p9', 'migrate:p10', 'retention:dry', 'retention:run'
   ];
   return {
     ...sourcePackage,

@@ -37,6 +37,8 @@ npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
 npm run migrate:p8
+npm run migrate:p9
+npm run migrate:p10
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -388,6 +390,8 @@ npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
 npm run migrate:p8
+npm run migrate:p9
+npm run migrate:p10
 ```
 
 En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,

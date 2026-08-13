@@ -121,6 +121,8 @@ app.use('/api/content', require('./routes/content'));
 app.use('/api/learning', require('./routes/learning'));
 app.use('/api/audit-log', require('./routes/audit-log'));
 app.use('/api/applications', require('./routes/applications'));
+app.use('/api/student-profile', require('./routes/student-profile'));
+app.use('/api/student-profile-reviews', require('./routes/student-profile-reviews'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.get('/api/health', async (_req, res, next) => {
   try {

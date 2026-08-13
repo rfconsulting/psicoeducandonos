@@ -15,6 +15,8 @@ test('aplica capacidades por rol', () => {
   assert.equal(hasCapability(ROLES.SUPERUSER, CAPABILITIES.USER_PASSWORD_RESET), true);
   assert.equal(hasCapability(ROLES.ADMINISTRATOR, CAPABILITIES.USER_PASSWORD_RESET), false);
   assert.equal(hasCapability(ROLES.ADMINISTRATOR, CAPABILITIES.APPLICATION_MANAGE), true);
+  assert.equal(hasCapability(ROLES.ADMINISTRATOR, CAPABILITIES.STUDENT_PROFILE_REVIEW), true);
+  assert.equal(hasCapability(ROLES.TEACHER, CAPABILITIES.STUDENT_PROFILE_REVIEW), false);
   assert.equal(hasCapability(ROLES.TEACHER, CAPABILITIES.APPLICATION_MANAGE), false);
 });
 

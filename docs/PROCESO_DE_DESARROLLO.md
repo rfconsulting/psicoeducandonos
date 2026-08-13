@@ -367,6 +367,8 @@ Las migraciones se diseñaron para ser repetibles:
 | `migrate:p6` | acompañamiento por matrícula |
 | `migrate:p7` | Trabajo personal y compatibilidad con datos históricos |
 | `migrate:p8` | Origen trazable de cuentas y habilitación del registro público |
+| `migrate:p9` | Perfil estudiantil progresivo y consentimientos versionados |
+| `migrate:p10` | Historial inmutable de validación estudiantil |
 
 Orden requerido:
 
@@ -380,6 +382,8 @@ npm run migrate:p5
 npm run migrate:p6
 npm run migrate:p7
 npm run migrate:p8
+npm run migrate:p9
+npm run migrate:p10
 ```
 
 `schema.sql` representa el esquema completo para instalaciones nuevas.
