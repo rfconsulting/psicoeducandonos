@@ -5,7 +5,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
-docs
 artifacts/
 .agents
 server.err.log
