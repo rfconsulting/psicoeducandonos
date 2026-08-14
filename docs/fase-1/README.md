@@ -33,8 +33,8 @@ histórico y sin acoplar formación, consultas y pagos.
 
 ## Quality gate
 
-La arquitectura está lista para iniciar registro y onboarding. Commerce no está
-listo para implementación hasta resolver ADR-007. Cada iteración posterior debe
-definir criterios de aceptación, migración reejecutable, pruebas negativas y
-rollback antes de editar código.
-
+La arquitectura está lista para registro, onboarding y Commerce. ADR-007 quedó
+resuelto con Mercado Pago para ARS local, PayPal para USD internacional y una
+extensión cripto futura. Cada iteración posterior debe definir criterios de
+aceptación, migración reejecutable, pruebas negativas y rollback antes de editar
+código.

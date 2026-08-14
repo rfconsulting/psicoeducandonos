@@ -101,6 +101,10 @@ professional_services 1---* appointments
 appointments 1---* appointment_events
 ```
 
+Los pagos productivos se enrutan por oferta: Mercado Pago para ARS local en
+Argentina y PayPal para USD internacional. Un adaptador cripto puede añadirse
+en el futuro sin cambiar las fuentes de verdad de orden, pago, matrícula o cita.
+
 Los nombres físicos y restricciones definitivas se validarán por migración. No
 se usarán relaciones polimórficas sin claves foráneas para conectar productos.
 
@@ -125,4 +129,3 @@ se usarán relaciones polimórficas sin claves foráneas para conectar productos
 - `legacy` identifica matrículas cuyo origen anterior no puede reconstruirse.
 - Toda migración debe ser reejecutable, respaldada y validada con conteos antes y
   después.
-

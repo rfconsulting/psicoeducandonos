@@ -4,8 +4,11 @@ function normalizeCoursePayload(body = {}) {
   const title = String(body.title || '').trim().slice(0, 180);
   const description = String(body.description || '').trim().slice(0, 10000);
   const status = body.status === 'published' ? 'published' : 'draft';
+  const accessType = ['free', 'paid'].includes(body.accessType) ? body.accessType : 'free';
+  const enrollmentPolicy = ['open', 'approved_students', 'admin_only'].includes(body.enrollmentPolicy)
+    ? body.enrollmentPolicy : 'admin_only';
   if (title.length < 5 || description.length < 20) return null;
-  return { title, description, status };
+  return { title, description, status, accessType, enrollmentPolicy };
 }
 
 async function courseForManagement(db, actor, courseId) {

@@ -3260,7 +3260,7 @@ body :is(h1, h2, h3, h4, .article-summary) {
 }
 
 .brand img {
-    content: url("assets/logo%20suelto1.jpg");
+    content: url("assets/logo.png");
     width: clamp(190px, 18vw, 280px);
     height: auto;
     object-fit: contain

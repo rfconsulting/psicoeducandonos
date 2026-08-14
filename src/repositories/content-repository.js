@@ -11,7 +11,7 @@ async function listArticles({ userId, globalAccess, canAuthor, cursor, limit }) 
   values.push(limit);
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.execute(
-    `SELECT a.id,a.author_id AS authorId,a.title,a.slug,a.summary,a.status,a.created_at AS createdAt,u.full_name AS author
+    `SELECT a.id,a.author_id AS authorId,a.title,a.slug,a.summary,a.pdf_url AS pdfUrl,a.status,a.created_at AS createdAt,u.full_name AS author
      FROM articles a JOIN users u ON u.id=a.author_id ${where} ORDER BY a.id DESC LIMIT ?`,
     values
   );
@@ -29,7 +29,9 @@ async function listCourses({ userId, globalAccess, canCreate, cursor, limit }) {
   values.push(limit);
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.execute(
-    `SELECT c.id,c.creator_id AS creatorId,c.title,c.slug,c.description,c.status,c.created_at AS createdAt,u.full_name AS creator
+    `SELECT c.id,c.creator_id AS creatorId,c.title,c.slug,c.description,c.status,
+            c.access_type AS accessType,c.enrollment_policy AS enrollmentPolicy,
+            c.created_at AS createdAt,u.full_name AS creator
      FROM courses c JOIN users u ON u.id=c.creator_id ${where} ORDER BY c.id DESC LIMIT ?`,
     values
   );

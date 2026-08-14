@@ -8,5 +8,4 @@
 | [ADR-004](ADR-004-COMMERCE-COMPARTIDO.md) | Aceptado | Commerce común para vendibles. |
 | [ADR-005](ADR-005-WEBHOOK-AUTORITATIVO.md) | Aceptado | Webhook verificado concede pago. |
 | [ADR-006](ADR-006-RESERVA-TRANSACCIONAL.md) | Aceptado | Holds y exclusión transaccional. |
-| [ADR-007](ADR-007-PROVEEDOR-DE-PAGO.md) | Pendiente | Selección de proveedor y alcance. |
-
+| [ADR-007](ADR-007-PROVEEDOR-DE-PAGO.md) | Aceptado | Mercado Pago ARS, PayPal USD y extensión cripto futura. |

@@ -59,7 +59,12 @@ const env = {
   securityAlertEmail: String(process.env.SECURITY_ALERT_EMAIL || '').trim(),
   mfaEncryptionKey: String(process.env.MFA_ENCRYPTION_KEY || ''),
   dataRetentionDays: integer('DATA_RETENTION_DAYS', 730, 30, 3650),
-  maintenanceMode: boolean('MAINTENANCE_MODE')
+  maintenanceMode: boolean('MAINTENANCE_MODE'),
+  paymentProvider: String(process.env.PAYMENT_PROVIDER || 'disabled').trim().toLowerCase(),
+  fakePaymentWebhookSecret: String(process.env.FAKE_PAYMENT_WEBHOOK_SECRET || '').trim(),
+  mercadoPagoAccessToken: String(process.env.MERCADOPAGO_ACCESS_TOKEN || '').trim(),
+  mercadoPagoWebhookSecret: String(process.env.MERCADOPAGO_WEBHOOK_SECRET || '').trim(),
+  mercadoPagoUserId: String(process.env.MERCADOPAGO_USER_ID || '').trim()
 };
 
 if (env.emailProvider !== 'resend') throw new Error('EMAIL_PROVIDER debe ser resend.');
@@ -68,6 +73,10 @@ if (env.isProduction && !env.emailFrom) throw new Error('EMAIL_FROM es obligator
 if (env.isProduction && !process.env.APP_PUBLIC_URL) throw new Error('APP_PUBLIC_URL es obligatorio en producción.');
 if (env.mfaEncryptionKey && !/^[a-f0-9]{64}$/i.test(env.mfaEncryptionKey)) throw new Error('MFA_ENCRYPTION_KEY debe contener exactamente 64 caracteres hexadecimales.');
 if (env.isProduction && !env.mfaEncryptionKey) throw new Error('MFA_ENCRYPTION_KEY es obligatorio en producción.');
+if (!['disabled', 'fake', 'mercadopago'].includes(env.paymentProvider)) throw new Error('PAYMENT_PROVIDER debe ser disabled, fake o mercadopago.');
+if (env.isProduction && env.paymentProvider === 'fake') throw new Error('El proveedor de pagos fake no puede utilizarse en producción.');
+if (env.paymentProvider === 'fake' && env.fakePaymentWebhookSecret.length < 32) throw new Error('FAKE_PAYMENT_WEBHOOK_SECRET debe tener al menos 32 caracteres.');
+if (env.paymentProvider === 'mercadopago' && (!env.mercadoPagoAccessToken || env.mercadoPagoWebhookSecret.length < 32 || !/^\d+$/.test(env.mercadoPagoUserId))) throw new Error('La configuración de Mercado Pago está incompleta.');
 
 env.randomToken = () => crypto.randomBytes(32).toString('hex');
 module.exports = Object.freeze(env);

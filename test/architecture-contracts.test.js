@@ -22,8 +22,12 @@ test('la autorización no bloquea consultas por aprobación estudiantil', () => 
   assert.match(access, /open \| approved_students \| admin_only/);
 });
 
-test('las decisiones críticas quedan registradas y el proveedor sigue pendiente', () => {
+test('las decisiones críticas y la estrategia multiproveedor quedan registradas', () => {
   const register = read(path.join('adr', 'README.md'));
   for (let id = 1; id <= 7; id += 1) assert.match(register, new RegExp(`ADR-00${id}`));
-  assert.match(read(path.join('adr', 'ADR-007-PROVEEDOR-DE-PAGO.md')), /Estado: pendiente/);
+  const providerDecision = read(path.join('adr', 'ADR-007-PROVEEDOR-DE-PAGO.md'));
+  assert.match(providerDecision, /Estado: aceptado/);
+  assert.match(providerDecision, /Mercado Pago Checkout Pro/);
+  assert.match(providerDecision, /PayPal Checkout \/ Orders/);
+  assert.match(providerDecision, /Cripto.*extensión futura/s);
 });

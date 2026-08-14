@@ -21,6 +21,7 @@
         <button class="nav-item active" type="button" data-panel-target="profile-panel">Mi perfil</button>
         <button class="nav-item" type="button" data-panel-target="available-panel">Cursos disponibles</button>
         <button class="nav-item" type="button" data-panel-target="my-courses-panel">Mi curso</button>
+        <button class="nav-item" type="button" data-panel-target="consultations-panel" id="consultations-nav">Consultas</button>
         <button class="nav-item" type="button" data-panel-target="student-blog-panel">Blog</button>
       </nav>
     </aside>
@@ -52,6 +53,11 @@
       <section class="content-section dashboard-panel" id="student-blog-panel" hidden>
         <div class="content-heading"><div><span>Blog</span><h2>Artículos</h2></div><p>Recursos educativos de la comunidad.</p></div>
         <div class="content-list" id="articles-list"></div>
+      </section>
+      <section class="content-section dashboard-panel" id="consultations-panel" hidden>
+        <div class="content-heading"><div><span>Acompañamiento</span><h2>Agendar consulta</h2></div><p>Elige servicio, fecha y un horario disponible.</p></div>
+        <p class="form-message" id="consultations-message" role="alert"></p><div class="content-list" id="consultations-list"></div>
+        <div class="content-heading"><div><span>Seguimiento</span><h3>Mis consultas</h3></div></div><div class="content-list" id="my-consultations-list"></div>
       </section>
     </main>
   </div>

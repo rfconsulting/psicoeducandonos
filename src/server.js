@@ -61,7 +61,10 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 app.use(compression());
-app.use(express.json({ limit: '64kb', type: 'application/json', strict: true }));
+app.use(express.json({
+  limit: '64kb', type: 'application/json', strict: true,
+  verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
+}));
 app.use(express.urlencoded({ extended: false, limit: '64kb', parameterLimit: 50 }));
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.is('application/json') && (!req.body || Array.isArray(req.body) || typeof req.body !== 'object')) {
@@ -123,6 +126,8 @@ app.use('/api/audit-log', require('./routes/audit-log'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/student-profile', require('./routes/student-profile'));
 app.use('/api/student-profile-reviews', require('./routes/student-profile-reviews'));
+app.use('/api/commerce', require('./routes/commerce'));
+app.use('/api/scheduling', require('./routes/scheduling'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.get('/api/health', async (_req, res, next) => {
   try {

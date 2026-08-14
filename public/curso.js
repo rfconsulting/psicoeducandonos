@@ -116,7 +116,7 @@ function renderQuiz(lesson, enrollment, onCompleted) {
 
 function selectLesson(lessonId, moveFocus = true) {
   const lesson = lessonSequence.find(item => item.id === lessonId);
-  if (!lesson) return;
+  if (!lesson || lesson.locked) return;
   selectedLessonId = lesson.id;
   history.replaceState(null, '', `#leccion-${lesson.id}`);
   renderOutline();
@@ -143,12 +143,13 @@ function renderOutline() {
       const item = document.createElement('li');
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `outline-lesson${lesson.id === selectedLessonId ? ' active' : ''}${lesson.completed ? ' completed' : ''}`;
+      button.className = `outline-lesson${lesson.id === selectedLessonId ? ' active' : ''}${lesson.completed ? ' completed' : ''}${lesson.locked ? ' locked' : ''}`;
+      button.disabled = lesson.locked;
       if (lesson.id === selectedLessonId) button.setAttribute('aria-current', 'step');
       const title = document.createElement('span');
       title.textContent = lesson.title;
       const state = document.createElement('small');
-      state.textContent = lesson.completed ? '✓ Terminada' : 'Pendiente';
+      state.textContent = lesson.completed ? '✓ Terminada' : lesson.locked ? '🔒 Completa la anterior' : 'Disponible';
       button.append(title, state);
       button.addEventListener('click', () => selectLesson(lesson.id));
       item.appendChild(button);
@@ -176,7 +177,7 @@ function lessonNavigation(lesson) {
   next.type = 'button';
   next.className = 'small-button';
   next.textContent = 'Siguiente lección →';
-  next.disabled = index >= lessonSequence.length - 1;
+  next.disabled = index >= lessonSequence.length - 1 || Boolean(lessonSequence[index + 1]?.locked);
   next.addEventListener('click', () => selectLesson(lessonSequence[index + 1]?.id));
   navigation.append(previous, position, next);
   return navigation;
@@ -231,6 +232,8 @@ function renderSelectedLesson() {
   workspace.appendChild(resources);
   if (lesson.questions.length === 6) {
     workspace.appendChild(renderQuiz(lesson, currentEnrollment, () => {
+      const index = lessonSequence.findIndex(item => item.id === lesson.id);
+      if (lessonSequence[index + 1]) lessonSequence[index + 1].locked = false;
       renderOutline();
       const status = workspace.querySelector('.lesson-state-pending');
       if (status) {
@@ -279,7 +282,7 @@ async function init() {
     courseModules = modules;
     lessonSequence = modules.flatMap(module => module.lessons);
     const hashId = Number(location.hash.replace('#leccion-', ''));
-    const hashLesson = lessonSequence.find(lesson => lesson.id === hashId);
+    const hashLesson = lessonSequence.find(lesson => lesson.id === hashId && !lesson.locked);
     selectedLessonId = hashLesson?.id || lessonSequence.find(lesson => !lesson.completed)?.id || lessonSequence[0]?.id || null;
     renderOutline();
     renderSelectedLesson();

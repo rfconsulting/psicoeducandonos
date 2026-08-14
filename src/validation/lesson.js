@@ -17,6 +17,14 @@ function driveUrl(value) {
   return allowedUrl(value, ['drive.google.com']);
 }
 
+function driveDownloadUrl(value) {
+  const normalized = driveUrl(value);
+  if (!normalized) return '';
+  const url = new URL(normalized);
+  const fileId = url.pathname.match(/^\/file\/d\/([A-Za-z0-9_-]+)/)?.[1] || url.searchParams.get('id');
+  return fileId && /^[A-Za-z0-9_-]{10,}$/.test(fileId) ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}` : '';
+}
+
 function youtubeEmbedUrl(value) {
   const normalized = youtubeUrl(value);
   if (!normalized) return '';
@@ -82,6 +90,7 @@ function questionForClient(question, options, includeCorrect = false) {
 module.exports = {
   youtubeUrl,
   driveUrl,
+  driveDownloadUrl,
   youtubeEmbedUrl,
   normalizeQuestions,
   evaluateAnswers,

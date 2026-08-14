@@ -67,11 +67,12 @@
       <div class="blog-workspace">
         <div class="blog-editor">
           <form class="editor-form" id="article-form" hidden>
-            <h3>Nuevo artículo</h3>
+            <h3 id="article-form-title">Nuevo artículo</h3>
             <div class="field"><label for="article-title">Título</label><input id="article-title" name="title" maxlength="180" required></div>
             <div class="field"><label for="article-summary">Resumen</label><textarea id="article-summary" name="summary" maxlength="320" required></textarea></div>
             <div class="field"><label for="article-body">Contenido</label><textarea id="article-body" name="body" rows="8" maxlength="50000" required></textarea></div>
-            <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><button class="submit-button" type="submit">Guardar artículo</button></div>
+            <div class="field"><label for="article-pdf-url">PDF completo en Google Drive (opcional)</label><input id="article-pdf-url" name="pdfUrl" type="url" maxlength="1000" placeholder="https://drive.google.com/file/d/..."></div>
+            <div class="publish-row"><label><input type="checkbox" name="publish"> Publicar inmediatamente</label><div><button class="small-button secondary-button" id="article-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button" type="submit">Guardar artículo</button></div></div>
             <p class="form-message" role="alert"></p>
           </form>
         </div>
@@ -90,6 +91,14 @@
             <h3 id="course-form-title">Nuevo curso</h3>
             <div class="field"><label for="course-title">Título</label><input id="course-title" name="title" maxlength="180" required></div>
             <div class="field"><label for="course-description">Descripción</label><textarea id="course-description" name="description" rows="6" maxlength="10000" required></textarea></div>
+            <div class="form-grid">
+              <div class="field"><label for="course-access-type">Acceso</label><select id="course-access-type" name="accessType"><option value="free">Gratuito</option><option value="paid">Pago (Commerce pendiente)</option></select></div>
+              <div class="field"><label for="course-enrollment-policy">Inscripción</label><select id="course-enrollment-policy" name="enrollmentPolicy"><option value="admin_only">Solo administración</option><option value="open">Autoinscripción abierta</option><option value="approved_students">Solo perfiles aprobados</option></select></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="course-price-currency">Moneda del precio</label><input id="course-price-currency" name="priceCurrency" maxlength="3" placeholder="USD"></div>
+              <div class="field"><label for="course-price-amount">Importe</label><input id="course-price-amount" name="priceAmount" inputmode="decimal" placeholder="120.00"></div>
+            </div>
             <div class="publish-row"><label><input type="checkbox" name="publish"> Curso publicado</label><div><button class="small-button secondary-button" id="course-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button" type="submit">Guardar curso</button></div></div>
             <p class="form-message" role="alert"></p>
           </form>

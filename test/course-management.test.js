@@ -23,9 +23,22 @@ test('normaliza los campos editables de un curso', () => {
   }), {
     title: 'Curso actualizado',
     description: 'Descripción suficiente para el curso.',
-    status: 'published'
+    status: 'published',
+    accessType: 'free',
+    enrollmentPolicy: 'admin_only'
   });
   assert.equal(normalizeCoursePayload({ title: 'No', description: 'Corta' }), null);
+});
+
+test('normaliza acceso y política de inscripción explícitos', () => {
+  const course = normalizeCoursePayload({
+    title: 'Curso con acceso',
+    description: 'Descripción suficientemente extensa para validar.',
+    accessType: 'paid',
+    enrollmentPolicy: 'approved_students'
+  });
+  assert.equal(course.accessType, 'paid');
+  assert.equal(course.enrollmentPolicy, 'approved_students');
 });
 
 test('profesor administra únicamente un curso propio', async () => {

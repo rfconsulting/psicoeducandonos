@@ -7,6 +7,8 @@ const audit = require('../services/audit');
 const { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers, questionForClient } = require('../validation/lesson');
 const { courseForManagement: findManageableCourse } = require('../services/course-management');
 const { supportStatusForStudent } = require('../services/student-support');
+const { catalogAvailability } = require('../services/course-enrollment');
+const { sequenceLessons } = require('../services/lesson-sequencing');
 
 const router = express.Router();
 const clean = (value, max) => String(value || '').trim().slice(0, max);
@@ -190,13 +192,47 @@ router.post('/courses/:courseId/enrollments', requireCapability(CAPABILITIES.COU
     if (!students[0]) return res.status(404).json({ error: 'Estudiante activo no encontrado.' });
     await withTransaction(async connection => {
       await connection.execute(
-        `INSERT INTO course_enrollments (course_id,student_id,enrolled_by) VALUES (?,?,?)
-         ON DUPLICATE KEY UPDATE status='active',enrolled_by=VALUES(enrolled_by),completed_at=NULL`,
+        `INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source) VALUES (?,?,?,'admin')
+         ON DUPLICATE KEY UPDATE status='active',enrolled_by=VALUES(enrolled_by),enrollment_source='admin',completed_at=NULL`,
         [courseId, studentId, req.authUser.id]
       );
       await audit(req, 'student_enrolled', 'course', courseId, { studentId }, { db: connection, required: true });
     });
     return res.json({ message: 'Estudiante inscrito.' });
+  } catch (error) { return next(error); }
+});
+
+router.post('/courses/:courseId/self-enrollment', requireRole('student'), verifyCsrf, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isSafeInteger(courseId) || courseId < 1) return res.status(422).json({ error: 'Curso inválido.' });
+    const outcome = await withTransaction(async connection => {
+      const [[course]] = await connection.execute(
+        `SELECT id,status,access_type AS accessType,enrollment_policy AS enrollmentPolicy
+         FROM courses WHERE id=? LIMIT 1 FOR UPDATE`,
+        [courseId]
+      );
+      if (!course || course.status !== 'published') return { status: 404, error: 'Curso no encontrado.' };
+      const [[profile]] = await connection.execute('SELECT review_status AS reviewStatus FROM student_profiles WHERE user_id=? LIMIT 1', [req.authUser.id]);
+      const [[existing]] = await connection.execute('SELECT id,status FROM course_enrollments WHERE course_id=? AND student_id=? LIMIT 1 FOR UPDATE', [courseId, req.authUser.id]);
+      const availability = catalogAvailability(course, { approved: profile?.reviewStatus === 'approved', enrolled: existing && ['active', 'completed'].includes(existing.status) });
+      if (availability.code === 'enrolled') return { status: 200, message: 'Ya estás inscrito en este curso.', alreadyEnrolled: true };
+      const errors = {
+        payment_unavailable: 'El pago en línea para este curso todavía no está disponible.',
+        admin_only: 'Este curso requiere inscripción administrativa.',
+        approval_required: 'Tu perfil debe estar aprobado antes de inscribirte en este curso.'
+      };
+      if (!availability.canSelfEnroll) return { status: 403, error: errors[availability.code] };
+      if (existing) {
+        await connection.execute("UPDATE course_enrollments SET status='active',enrolled_by=?,enrollment_source='free_self',enrolled_at=UTC_TIMESTAMP(),completed_at=NULL WHERE id=?", [req.authUser.id, existing.id]);
+      } else {
+        await connection.execute("INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source) VALUES (?,?,?,'free_self')", [courseId, req.authUser.id, req.authUser.id]);
+      }
+      await audit(req, 'student_self_enrolled', 'course', courseId, { source: 'free_self' }, { db: connection, required: true });
+      return { status: 201, message: 'Inscripción completada.', alreadyEnrolled: false };
+    });
+    if (outcome.error) return res.status(outcome.status).json({ error: outcome.error });
+    return res.status(outcome.status).json({ message: outcome.message, alreadyEnrolled: outcome.alreadyEnrolled });
   } catch (error) { return next(error); }
 });
 
@@ -259,16 +295,26 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
       const [progress] = await pool.execute('SELECT lesson_id AS lessonId FROM lesson_progress WHERE enrollment_id=? AND completed_at IS NOT NULL', [enrollment.id]);
       completedLessonIds = new Set(progress.map(item => item.lessonId));
     }
-    const structure = modules.map(module => ({
+    const rawStructure = modules.map(module => ({
       ...module,
       lessons: lessons.filter(lesson => lesson.moduleId === module.id).map(lesson => ({
         ...lesson,
         videoEmbedUrl: youtubeEmbedUrl(lesson.videoUrl),
-        completed: completedLessonIds.has(lesson.id),
         questions: questions
           .filter(question => question.lessonId === lesson.id)
           .map(question => questionForClient(question, options, managing))
       }))
+    }));
+    const structure = sequenceLessons(rawStructure, completedLessonIds, req.authUser.role === 'student');
+    if (req.authUser.role === 'student') structure.forEach(module => module.lessons.forEach(lesson => {
+      if (lesson.locked) {
+        lesson.content = '';
+        lesson.videoUrl = null;
+        lesson.videoEmbedUrl = '';
+        lesson.pdfUrl = null;
+        lesson.slidesUrl = null;
+        lesson.questions = [];
+      }
     }));
     return res.json({ course, enrollment, locked: false, modules: structure });
   } catch (error) { return next(error); }
@@ -279,7 +325,7 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
     const lessonId = Number(req.params.lessonId);
     if (!Number.isSafeInteger(lessonId)) return res.status(422).json({ error: 'Lección inválida.' });
     const [rows] = await pool.execute(
-      `SELECT e.id AS enrollmentId FROM course_enrollments e
+      `SELECT e.id AS enrollmentId,e.course_id AS courseId,m.position AS modulePosition,l.position AS lessonPosition FROM course_enrollments e
        JOIN course_modules m ON m.course_id=e.course_id JOIN lessons l ON l.module_id=m.id
        WHERE e.student_id=? AND e.status IN ('active','completed') AND l.id=? LIMIT 1`,
       [req.authUser.id, lessonId]
@@ -303,7 +349,17 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
         incorrectQuestions
       });
     }
-    await withTransaction(async connection => {
+    const saved = await withTransaction(async connection => {
+      await connection.execute('SELECT id FROM course_enrollments WHERE id=? FOR UPDATE', [rows[0].enrollmentId]);
+      const [[prerequisites]] = await connection.execute(
+        `SELECT COUNT(*) AS missing FROM lessons previous
+         JOIN course_modules pm ON pm.id=previous.module_id
+         WHERE pm.course_id=?
+           AND (pm.position<? OR (pm.position=? AND previous.position<?))
+           AND NOT EXISTS (SELECT 1 FROM lesson_progress lp WHERE lp.enrollment_id=? AND lp.lesson_id=previous.id AND lp.completed_at IS NOT NULL)`,
+        [rows[0].courseId, rows[0].modulePosition, rows[0].modulePosition, rows[0].lessonPosition, rows[0].enrollmentId]
+      );
+      if (Number(prerequisites.missing) > 0) return false;
       await connection.execute(
         `INSERT INTO lesson_progress (enrollment_id,lesson_id,completed_at) VALUES (?,?,UTC_TIMESTAMP())
          ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at)`,
@@ -331,7 +387,9 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
         );
       }
       await audit(req, 'lesson_progress_updated', 'lesson', lessonId, { completed: true }, { db: connection, required: true });
+      return true;
     });
+    if (!saved) return res.status(409).json({ error: 'Completa la lección anterior antes de continuar.', code: 'LESSON_PREREQUISITE_REQUIRED' });
     return res.json({ message: '¡Todas las respuestas son correctas! Lección completada.', completed: true });
   } catch (error) { return next(error); }
 });
