@@ -109,8 +109,8 @@ El rol nunca se selecciona en el formulario. Express lo obtiene de MySQL despué
 - `student` es dirigido a `/estudiante.html`.
 
 Existe registro público mínimo en `/registro.html`: nombre, correo y contraseña.
-La cuenta `student` debe verificar su correo antes de iniciar sesión. La ruta
-`/postulacion.html` permanece disponible como flujo legado durante la transición.
+La cuenta `student` debe verificar su correo antes de iniciar sesión y completar
+su perfil para la validación administrativa. El formulario público anterior fue retirado.
 
 ## Paneles y navegación
 
@@ -134,12 +134,11 @@ semántica.
 Panel administrativo:
 
 - **Inicio:** resumen del espacio y alcance del rol.
-- **Inicio administrativo:** para `superuser` y `administrator`, muestra estudiantes inscritos, postulaciones pendientes, cursos, artículos, profesores, escritores y el desglose de matrículas por curso.
+- **Inicio administrativo:** para `superuser` y `administrator`, muestra estudiantes inscritos, cursos, artículos, profesores, escritores y el desglose de matrículas por curso.
 - **Blog:** visible para `superuser`, `administrator`, `teacher` y `writer`.
 - **Formación:** visible para `superuser`, `administrator` y `teacher`.
 - **Seguimiento académico:** visible para `superuser`, `administrator` y `teacher`, con búsqueda por nombre o curso, expediente y récord académico.
 - **Usuarios:** visible para `superuser` y `administrator`.
-- **Postulaciones:** visible para `superuser` y `administrator`.
 - **Registro de actividad:** visible exclusivamente para `superuser`.
 
 Panel estudiantil:
@@ -150,7 +149,7 @@ Panel estudiantil:
 
 En pantallas pequeñas, el menú lateral se convierte en una navegación horizontal desplazable.
 
-El lector de artículos también reconstruye la navegación a partir del rol autenticado. Sus enlaces usan fragmentos de URL para regresar directamente a Blog, Formación, Seguimiento, Usuarios, Postulaciones, Actividad, Cursos disponibles o Mi curso, según los permisos correspondientes.
+El lector de artículos también reconstruye la navegación a partir del rol autenticado. Sus enlaces usan fragmentos de URL para regresar directamente a Blog, Formación, Seguimiento, Usuarios, Actividad, Cursos disponibles o Mi curso, según los permisos correspondientes.
 
 ## Permisos
 
@@ -164,7 +163,7 @@ El panel de control está disponible únicamente para `superuser`, `administrato
 
 ## Seguridad incluida
 
-- Registro público de cuentas deshabilitado; la admisión comienza mediante una postulación.
+- Registro público mínimo con verificación obligatoria de correo y validación administrativa del perfil.
 - Control de acceso basado en roles.
 - Contraseñas protegidas con bcrypt y factor de coste 12.
 - Política mínima de 12 caracteres para usuarios y 16 para el superusuario inicial.
@@ -176,7 +175,7 @@ El panel de control está disponible únicamente para `superuser`, `administrato
 - Contraseñas temporales con cambio obligatorio.
 - Restablecimiento administrativo de contraseñas exclusivo para el superusuario; invalida las sesiones existentes, desbloquea la cuenta y obliga al usuario a elegir una contraseña personal.
 - Recuperación mediante tokens aleatorios de un solo uso, almacenados como hash y con expiración de 30 minutos.
-- Límites separados para acceso, postulaciones, recuperación y uso general de la API.
+- Límites separados para acceso, registro, recuperación y uso general de la API.
 - Borradores restringidos a su propietario, administradores y superusuario.
 - Capacidades centralizadas por rol en `src/constants/access.js`.
 - Auditoría transaccional para cambios críticos.
@@ -254,7 +253,7 @@ Profesores administran únicamente los cursos que crearon. Administradores y sup
 
 El seguimiento académico calcula el porcentaje a partir de las lecciones
 terminadas respecto del total de lecciones del curso. La ficha del estudiante
-incluye los datos disponibles de su cuenta y postulación. Cada matrícula
+incluye los datos disponibles de su cuenta y perfil. Cada matrícula
 mantiene un registro independiente de Supervisión, Práctica y Trabajo
 personal, con un indicador de cumplimiento y observaciones. El profesor solo
 puede consultar y actualizar estos campos en cursos creados por él; el
@@ -264,21 +263,13 @@ En “Mi curso”, el estudiante visualiza el estado de Supervisión, Práctica 
 Trabajo personal como indicadores de solo lectura. Las observaciones internas
 y la identidad del responsable no se incluyen en la respuesta estudiantil.
 
-## Postulaciones al diplomado
+## Admisión y perfiles
 
-La landing enlaza al formulario nativo en `/postulacion.html`. Recoge datos de contacto, camino formativo, experiencia, motivación, procedencia y consentimientos. La autorización para gestionar la postulación y el compromiso de supervisión son obligatorios; la suscripción a novedades es independiente y opcional.
-
-Las solicitudes se almacenan en `applications`. Si ya existe una cuenta estudiantil con el mismo correo, queda vinculada automáticamente. Superusuario y administradores pueden filtrar por nombre, correo, estado o camino formativo y asignar los estados pendiente, en revisión, aprobada, lista de espera o rechazada.
-
-Al aprobar una postulación sin cuenta vinculada, el sistema crea la cuenta estudiantil con una credencial aleatoria no utilizable y genera un enlace de establecimiento de contraseña con vigencia de 24 horas. El enlace se entrega mediante Resend. No se envían contraseñas temporales. Si la cuenta ya existe, la aprobación solamente realiza la vinculación.
-
-Las observaciones son internas y cada revisión registra al usuario responsable en `audit_log`.
-
-```text
-POST  /api/applications
-GET   /api/applications?search=&status=&pathway=&limit=&cursor=
-PATCH /api/applications/:id/review
-```
+La persona crea una cuenta en `/registro.html`, verifica su correo y completa el
+perfil estudiantil. Superusuario y administradores revisan el perfil desde el
+panel. El endpoint público legado no acepta nuevas solicitudes. La tabla
+`applications` se conserva únicamente como histórico para trazabilidad y
+migraciones; no se elimina ni se modifica su información existente.
 
 Endpoints principales:
 
@@ -442,4 +433,4 @@ El despliegue incluye:
   (`p=none`) y debe endurecerse después de revisar los reportes.
 
 Antes de cada despliegue se debe conservar una copia recuperable y comprobar
-inicio de sesión, postulación, correo transaccional, MFA y conexión MySQL.
+inicio de sesión, registro, correo transaccional, MFA y conexión MySQL.

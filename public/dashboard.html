@@ -30,7 +30,6 @@
         <button class="nav-item" type="button" data-panel-target="courses-section" id="courses-nav">Formación</button>
         <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
         <button class="nav-item" type="button" data-panel-target="admin-section" id="users-nav" hidden>Usuarios</button>
-        <button class="nav-item" type="button" data-panel-target="applications-section" id="applications-nav" hidden>Postulaciones</button>
         <button class="nav-item" type="button" data-panel-target="profile-reviews-section" id="profile-reviews-nav" hidden>Validación de estudiantes</button>
         <button class="nav-item" type="button" data-panel-target="audit-section" id="audit-nav" hidden>Registro de actividad</button>
       </nav>
@@ -119,7 +118,7 @@
             <form class="editor-form" id="lesson-form">
               <h3 id="lesson-form-title">Añadir lección</h3>
               <div class="form-grid">
-                <div class="field"><label>ID del módulo</label><input name="moduleId" type="number" min="1" required></div>
+                <div class="field"><label for="lesson-module-id">ID del módulo</label><input id="lesson-module-id" name="moduleId" type="number" min="1" readonly required aria-describedby="lesson-module-help"><small id="lesson-module-help" class="field-help">Se completa al seleccionar “Añadir lección” en el módulo correspondiente.</small></div>
                 <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
               </div>
               <div class="field"><label>Título</label><input name="title" maxlength="180" required></div>
@@ -197,19 +196,6 @@
       </dialog>
     </section>
 
-    <section class="admin-section dashboard-panel" id="applications-section" hidden>
-      <div class="content-heading"><div><span>Admisiones</span><h2>Postulaciones</h2></div><p>Revisa las solicitudes de ingreso al diplomado.</p></div>
-      <form class="application-filters" id="application-filters">
-        <div class="field"><label>Buscar</label><input name="search" maxlength="120" placeholder="Nombre o correo"></div>
-        <div class="field"><label>Estado</label><select name="status"><option value="pending" selected>Pendiente</option><option value="reviewing">En revisión</option><option value="approved">Aprobada</option><option value="waitlisted">Lista de espera</option><option value="rejected">Rechazada</option><option value="">Todos los estados</option></select></div>
-        <div class="field"><label>Camino</label><select name="pathway"><option value="">Todos</option><option value="accompaniment">Acompañamiento</option><option value="health-professional">Profesional de salud</option></select></div>
-        <div class="application-filter-actions"><button class="small-button" type="submit">Filtrar</button><button class="small-button secondary-button" id="applications-clear" type="button">Limpiar</button></div>
-      </form>
-      <p class="form-message" id="applications-message" role="alert"></p>
-      <div class="applications-list" id="applications-list"></div>
-      <button class="small-button audit-more" id="applications-more" type="button" hidden>Cargar anteriores</button>
-    </section>
-
     <section class="admin-section dashboard-panel" id="profile-reviews-section" hidden>
       <div class="content-heading"><div><span>Onboarding</span><h2>Validación de estudiantes</h2></div><p>Revisa perfiles enviados y conserva un historial de cada decisión.</p></div>
       <form class="application-filters" id="profile-review-filters"><div class="field"><label>Buscar</label><input name="search" maxlength="120" placeholder="Nombre o correo"></div><div class="field"><label>Estado</label><select name="status"><option value="submitted" selected>Pendiente</option><option value="under_review">En revisión</option><option value="changes_requested">Requiere correcciones</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option><option value="">Todos</option></select></div><div class="application-filter-actions"><button class="small-button" type="submit">Filtrar</button><button class="small-button secondary-button" id="profile-reviews-clear" type="button">Limpiar</button></div></form>
@@ -232,8 +218,8 @@
           <option value="student_tracking_updated">Seguimiento actualizado</option><option value="enrollment_support_updated">Acompañamiento de matrícula actualizado</option><option value="lesson_progress_updated">Progreso actualizado</option>
           <option value="password_changed">Contraseña actualizada</option><option value="password_reset_requested">Recuperación solicitada</option><option value="password_reset_delivery_unconfigured">Recuperación sin proveedor de correo</option><option value="password_reset_delivery_failed">Fallo al entregar recuperación</option><option value="password_reset_completed">Contraseña restablecida</option>
           <option value="mfa_verified">MFA completado</option>
-          <option value="application_submitted">Postulación recibida</option><option value="application_reviewed">Postulación revisada</option>
-          <option value="student_account_created_from_application">Cuenta creada desde postulación</option>
+          <option value="application_submitted">Solicitud histórica recibida</option><option value="application_reviewed">Solicitud histórica revisada</option>
+          <option value="student_account_created_from_application">Cuenta creada desde solicitud histórica</option>
         </select></div>
         <div class="field"><label for="audit-role">Rol</label><select id="audit-role" name="role">
           <option value="">Todos</option><option value="superuser">Superusuario</option><option value="administrator">Administrador</option>

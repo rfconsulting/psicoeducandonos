@@ -97,7 +97,6 @@ app.use(createMaintenanceMiddleware({
 
 const limiterOptions = { windowMs: 15 * 60 * 1000, standardHeaders: 'draft-8', legacyHeaders: false };
 const loginLimiter = rateLimit({ ...limiterOptions, limit: 10, message: { error: 'Demasiados intentos de acceso. Espera unos minutos.' } });
-const applicationLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas postulaciones. Espera unos minutos.' } });
 const recoveryLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas solicitudes de recuperación. Espera unos minutos.' } });
 const registrationLimiter = rateLimit({ ...limiterOptions, limit: 5, message: { error: 'Demasiadas solicitudes. Espera unos minutos.' } });
 const mfaLimiter = rateLimit({
@@ -114,7 +113,7 @@ app.get('/api/csrf-token', issueCsrfToken);
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/register', registrationLimiter);
 app.use('/api/auth/verification/resend', registrationLimiter);
-app.post('/api/applications', applicationLimiter);
+app.post('/api/applications', (_req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
 app.use('/api/auth/forgot-password', recoveryLimiter);
 app.use('/api/auth/reset-password', recoveryLimiter);
 app.use('/api/auth/mfa/verify', mfaLimiter);

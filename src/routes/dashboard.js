@@ -11,7 +11,6 @@ router.get('/statistics', requireRole('superuser', 'administrator'), async (_req
         SELECT
           (SELECT COUNT(DISTINCT student_id) FROM course_enrollments
            WHERE status IN ('active','completed')) AS enrolledStudents,
-          (SELECT COUNT(*) FROM applications WHERE status='pending') AS pendingApplications,
           (SELECT COUNT(*) FROM courses) AS coursesCreated,
           (SELECT COUNT(*) FROM articles) AS articlesCreated,
           (SELECT COUNT(*) FROM users WHERE role='teacher') AS teachers,

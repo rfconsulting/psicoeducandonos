@@ -662,6 +662,22 @@ footer {
     font-size: 14px
 }
 
+.development-credit {
+    color: rgba(255, 255, 255, .72)
+}
+
+.development-credit a {
+    color: #fff;
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--coral);
+    text-underline-offset: 4px
+}
+
+.development-credit a:hover {
+    color: #dce8ed
+}
+
 .reveal {
     opacity: 0;
     transform: translateY(24px);

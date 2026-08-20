@@ -17,6 +17,9 @@
     --shadow: 0 16px 42px rgba(15, 26, 32, .09)
 }
 
+/* Selección segura del módulo al crear lecciones */
+.field input[readonly]{background:#eef1f2;color:var(--muted);cursor:not-allowed}.field-help{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.4}.managed-module-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px}.managed-module-actions .small-button{margin-left:0}
+
 * {
     box-sizing: border-box
 }

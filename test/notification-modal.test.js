@@ -20,18 +20,9 @@ test('el modal ofrece cierre accesible y devuelve el foco', () => {
   assert.match(modalSource, /aria-describedby/);
 });
 
-test('postulación y curso cargan el componente antes de su script de página', () => {
-  for (const page of ['postulacion.html', 'curso.html']) {
-    const html = fs.readFileSync(path.join(root, 'public', page), 'utf8');
-    assert.ok(html.indexOf('notification-modal.js') < html.indexOf(page.replace('.html', '.js')));
-  }
-});
-
-test('una postulación aceptada muestra la confirmación con estado de éxito', () => {
-  const source = fs.readFileSync(path.join(root, 'public', 'postulacion.js'), 'utf8');
-  assert.match(source, /NotificationModal\.show\(\{type:'success'/);
-  assert.match(source, /Usted se ha postulado exitosamente\./);
-  assert.ok(source.indexOf('if(!response.ok)') < source.indexOf('NotificationModal.show'));
+test('el curso carga el componente antes de su script de página', () => {
+  const html = fs.readFileSync(path.join(root, 'public', 'curso.html'), 'utf8');
+  assert.ok(html.indexOf('notification-modal.js') < html.indexOf('curso.js'));
 });
 
 test('una lección se confirma solo después de guardar su progreso', () => {

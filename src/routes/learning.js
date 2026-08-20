@@ -4,7 +4,7 @@ const { requireRole, requireCapability, verifyCsrf } = require('../middleware/se
 const { CAPABILITIES, hasCapability } = require('../constants/access');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
-const { youtubeUrl, driveUrl, youtubeEmbedUrl, normalizeQuestions, evaluateAnswers, questionForClient } = require('../validation/lesson');
+const { youtubeUrl, driveUrl, youtubeEmbedUrl, lessonInputValidationError, normalizeQuestions, evaluateAnswers, questionForClient } = require('../validation/lesson');
 const { courseForManagement: findManageableCourse } = require('../services/course-management');
 const { supportStatusForStudent } = require('../services/student-support');
 const { catalogAvailability } = require('../services/course-enrollment');
@@ -117,11 +117,9 @@ router.post('/modules/:moduleId/lessons', requireCapability(CAPABILITIES.COURSE_
     const pdfUrl = driveUrl(req.body.pdfUrl);
     const slidesUrl = req.body.slidesUrl ? driveUrl(req.body.slidesUrl) : null;
     const questions = normalizeQuestions(req.body.questions);
-    const invalid = !Number.isSafeInteger(moduleId) || title.length < 3 || content.length < 10
-      || !Number.isInteger(position) || position < 1
-      || (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 1440))
-      || !videoUrl || !pdfUrl || (req.body.slidesUrl && !slidesUrl) || !questions;
-    if (invalid) return res.status(422).json({ error: 'Completa la lección, sus enlaces y las seis preguntas con cuatro opciones.' });
+    const validationError = lessonInputValidationError({ resourceId: moduleId, title, content, position, estimatedMinutes,
+      videoUrl: req.body.videoUrl, pdfUrl: req.body.pdfUrl, slidesUrl: req.body.slidesUrl, questions: req.body.questions });
+    if (validationError) return res.status(422).json({ error: validationError });
     const [modules] = await pool.execute('SELECT course_id FROM course_modules WHERE id=? LIMIT 1', [moduleId]);
     if (!modules[0]) return res.status(404).json({ error: 'Módulo no encontrado.' });
     const course = await courseForManagement(req.authUser, modules[0].course_id);
@@ -152,11 +150,9 @@ router.patch('/lessons/:lessonId', requireCapability(CAPABILITIES.COURSE_CREATE)
     const pdfUrl = driveUrl(req.body.pdfUrl);
     const slidesUrl = req.body.slidesUrl ? driveUrl(req.body.slidesUrl) : null;
     const questions = normalizeQuestions(req.body.questions);
-    const invalid = !Number.isSafeInteger(lessonId) || title.length < 3 || content.length < 10
-      || !Number.isInteger(position) || position < 1
-      || (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 1440))
-      || !videoUrl || !pdfUrl || (req.body.slidesUrl && !slidesUrl) || !questions;
-    if (invalid) return res.status(422).json({ error: 'Completa la lección, sus enlaces y las seis preguntas con cuatro opciones.' });
+    const validationError = lessonInputValidationError({ resourceId: lessonId, title, content, position, estimatedMinutes,
+      videoUrl: req.body.videoUrl, pdfUrl: req.body.pdfUrl, slidesUrl: req.body.slidesUrl, questions: req.body.questions });
+    if (validationError) return res.status(422).json({ error: validationError });
     const [lessons] = await pool.execute(
       `SELECT l.module_id AS moduleId,m.course_id AS courseId
        FROM lessons l JOIN course_modules m ON m.id=l.module_id WHERE l.id=? LIMIT 1`,

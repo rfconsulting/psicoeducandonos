@@ -40,11 +40,11 @@ test('el contrato HTTP exige CSRF, transacción, token de un uso y auditoría', 
   assert.match(source, /email_verified/);
 });
 
-test('registro y verificación están disponibles sin retirar la postulación', () => {
+test('registro y verificación reemplazan el formulario público legado', () => {
   const publicRoot = path.join(__dirname, '..', 'public');
   const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   assert.equal(fs.existsSync(path.join(publicRoot, 'registro.html')), true);
   assert.equal(fs.existsSync(path.join(publicRoot, 'verificar-email.html')), true);
-  assert.equal(fs.existsSync(path.join(publicRoot, 'postulacion.html')), true);
-  assert.doesNotMatch(server, /res\.redirect\(302, '\/postulacion\.html'\)/);
+  assert.equal(fs.existsSync(path.join(publicRoot, 'postulacion.html')), false);
+  assert.match(server, /app\.post\('\/api\/applications'.*status\(404\)/);
 });

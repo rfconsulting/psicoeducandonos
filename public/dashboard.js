@@ -7,7 +7,6 @@ let editingArticleId=null;
 let editingCourseId=null;
 let editingModuleId=null;let editingLessonId=null;let managedCourseId=null;
 let auditCursor=null;
-let applicationsCursor=null;
 let profileReviewsCursor=null;
 
 const activityNames={
@@ -23,9 +22,9 @@ const activityNames={
   password_reset_delivery_failed:'Fallo al entregar recuperación',password_reset_completed:'Contraseña restablecida',
   mfa_verified:'Verificación MFA completada',
   mfa_challenge_limited:'Desafío MFA limitado temporalmente',
-  application_submitted:'Postulación recibida',application_reviewed:'Postulación revisada',
-  application_duplicate_ignored:'Postulación repetida ignorada',
-  student_account_created_from_application:'Cuenta estudiantil creada desde postulación',
+  application_submitted:'Solicitud histórica recibida',application_reviewed:'Solicitud histórica revisada',
+  application_duplicate_ignored:'Solicitud histórica repetida ignorada',
+  student_account_created_from_application:'Cuenta estudiantil creada desde solicitud histórica',
   public_registration_created:'Cuenta pública creada',public_registration_duplicate_ignored:'Registro duplicado ignorado',
   email_verification_renewed:'Verificación de correo renovada',email_verification_sent:'Verificación de correo enviada',
   email_verification_delivery_failed:'Fallo al entregar verificación',email_verified:'Correo verificado'
@@ -62,7 +61,7 @@ async function loadDashboardStatistics(){
   const section=document.querySelector('#dashboard-statistics');const grid=document.querySelector('#statistics-grid');const coursesList=document.querySelector('#course-statistics-list');const message=document.querySelector('#statistics-message');section.hidden=false;grid.textContent='';coursesList.textContent='';message.textContent='';
   try{
     const {totals,courses}=await request('/api/dashboard/statistics');
-    [['Estudiantes inscritos',totals.enrolledStudents],['Postulaciones pendientes',totals.pendingApplications],['Cursos creados',totals.coursesCreated],['Artículos creados',totals.articlesCreated],['Profesores',totals.teachers],['Escritores',totals.writers]].forEach(([label,value])=>{const card=document.createElement('article');card.className='statistic-card';const name=document.createElement('span');name.textContent=label;const count=document.createElement('strong');count.textContent=Number(value)||0;card.append(name,count);grid.appendChild(card);});
+    [['Estudiantes inscritos',totals.enrolledStudents],['Cursos creados',totals.coursesCreated],['Artículos creados',totals.articlesCreated],['Profesores',totals.teachers],['Escritores',totals.writers]].forEach(([label,value])=>{const card=document.createElement('article');card.className='statistic-card';const name=document.createElement('span');name.textContent=label;const count=document.createElement('strong');count.textContent=Number(value)||0;card.append(name,count);grid.appendChild(card);});
     if(!courses.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay cursos creados.';coursesList.appendChild(empty);}
     courses.forEach(course=>{const row=document.createElement('div');row.className='course-statistic-row';const identity=document.createElement('div');const title=document.createElement('strong');title.textContent=course.title;const status=document.createElement('small');status.textContent=course.status==='published'?'Publicado':'Borrador';identity.append(title,status);const count=document.createElement('span');count.textContent=Number(course.enrolledStudents)||0;count.setAttribute('aria-label',`${count.textContent} estudiantes inscritos`);row.append(identity,count);coursesList.appendChild(row);});
   }catch(error){message.className='form-message error';message.textContent=error.message;}
@@ -121,34 +120,6 @@ async function loadAudit(reset=false){
   }catch(error){message.className='form-message error';message.textContent=error.message;}finally{more.disabled=false;}
 }
 
-const applicationStatuses={pending:'Pendiente',reviewing:'En revisión',approved:'Aprobada',waitlisted:'Lista de espera',rejected:'Rechazada'};
-async function loadApplications(reset=false){
-  const list=document.querySelector('#applications-list');const message=document.querySelector('#applications-message');const more=document.querySelector('#applications-more');
-  if(reset){applicationsCursor=null;list.textContent='';}more.disabled=true;message.className='form-message';message.textContent='';
-  try{
-    const query=new URLSearchParams({limit:'30'});new FormData(document.querySelector('#application-filters')).forEach((value,key)=>{if(String(value).trim())query.set(key,String(value).trim());});if(applicationsCursor)query.set('cursor',applicationsCursor);
-    const {applications,nextCursor}=await request(`/api/applications?${query}`);
-    if(!applications.length&&!list.children.length)message.textContent='No hay postulaciones con estos filtros.';
-    applications.forEach(application=>list.appendChild(applicationCard(application)));
-    applicationsCursor=nextCursor;more.hidden=!nextCursor;
-  }catch(error){message.className='form-message error';message.textContent=error.message;}finally{more.disabled=false;}
-}
-function applicationCard(application){
-  const form=document.createElement('form');form.className='application-review';form.dataset.applicationId=application.id;
-  form.innerHTML='<div class="application-person"><span></span><h3></h3><p class="application-contact"></p><div class="application-badges"></div></div><div class="application-answer"><strong>Motivación</strong><p></p></div><div class="application-answer feedback-answer" hidden><strong>Clase informativa</strong><p></p></div><div class="form-grid"><div class="field"><label>Estado</label><select name="status"></select></div><div class="field"><label>Observaciones internas</label><textarea name="reviewNotes" rows="4" maxlength="5000"></textarea></div></div><p class="form-message"></p><button class="small-button" type="submit">Guardar revisión</button>';
-  form.querySelector('.application-person>span').textContent=new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(application.createdAt));
-  form.querySelector('h3').textContent=application.fullName;form.querySelector('.application-contact').textContent=`${application.email} · ${application.phone} · ${application.location}`;
-  const badges=form.querySelector('.application-badges');['pathway','ageRange','crisisExperience'].forEach(key=>{const badge=document.createElement('span');badge.textContent=key==='pathway'?(application[key]==='accompaniment'?'Acompañamiento':'Profesional de salud'):key==='crisisExperience'?(application[key]?'Con experiencia':'Sin experiencia'):application[key];badges.appendChild(badge);});
-  if(application.userId){const linked=document.createElement('span');linked.textContent='Cuenta estudiantil vinculada';badges.appendChild(linked);}
-  form.querySelector('.application-answer p').textContent=application.motivation;
-  if(application.attendedInfoSession){const feedback=form.querySelector('.feedback-answer');feedback.hidden=false;feedback.querySelector('p').textContent=application.sessionFeedback||'Participó, sin comentario adicional.';}
-  const select=form.elements.status;Object.entries(applicationStatuses).forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);});select.value=application.status;form.elements.reviewNotes.value=application.reviewNotes||'';
-  form.addEventListener('submit',saveApplicationReview);return form;
-}
-async function saveApplicationReview(event){
-  event.preventDefault();const form=event.currentTarget;const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));button.disabled=true;
-  try{const data=await request(`/api/applications/${form.dataset.applicationId}/review`,{method:'PATCH',body:JSON.stringify(values)});await loadApplications(true);const globalMessage=document.querySelector('#applications-message');globalMessage.className='form-message success';globalMessage.textContent=data.message;}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}
-}
 const profileReviewStates={submitted:'Pendiente',under_review:'En revisión',changes_requested:'Requiere correcciones',approved:'Aprobado',rejected:'Rechazado'};
 const profileDecisions={submitted:[['start_review','Iniciar revisión']],under_review:[['request_changes','Solicitar cambios'],['approve','Aprobar'],['reject','Rechazar']],approved:[['reopen','Reabrir revisión']],rejected:[['reopen','Reabrir revisión']],changes_requested:[]};
 async function loadProfileReviews(reset=false){const list=document.querySelector('#profile-reviews-list');const message=document.querySelector('#profile-reviews-message');const more=document.querySelector('#profile-reviews-more');if(reset){profileReviewsCursor=null;list.textContent='';}more.disabled=true;message.className='form-message';message.textContent='';try{const query=new URLSearchParams({limit:'30'});new FormData(document.querySelector('#profile-review-filters')).forEach((value,key)=>{if(String(value).trim())query.set(key,String(value).trim());});if(profileReviewsCursor)query.set('cursor',profileReviewsCursor);const{profiles,nextCursor}=await request(`/api/student-profile-reviews?${query}`);if(!profiles.length&&!list.children.length)message.textContent='No hay perfiles con estos filtros.';profiles.forEach(profile=>list.appendChild(profileReviewCard(profile)));profileReviewsCursor=nextCursor;more.hidden=!nextCursor;}catch(error){message.className='form-message error';message.textContent=error.message;}finally{more.disabled=false;}}
@@ -200,7 +171,7 @@ async function loadStudentRecord(studentId){
     const data=await request(`/api/users/students/${studentId}/academic-record`);record.textContent='';
     const profile=document.createElement('div');profile.className='student-profile';const title=document.createElement('h3');title.textContent=data.student.fullName;const email=document.createElement('p');email.textContent=data.student.email;profile.append(title,email);
     const facts=document.createElement('div');facts.className='student-profile-grid';addFact(facts,'Estado',data.student.status==='active'?'Activo':'Inactivo');addFact(facts,'Registrado',displayDate(data.student.createdAt));addFact(facts,'Último acceso',displayDate(data.student.lastLoginAt));
-    if(data.application){addFact(facts,'Teléfono',data.application.phone);addFact(facts,'Edad',data.application.ageRange);addFact(facts,'Ubicación',data.application.location);addFact(facts,'Perfil',data.application.pathway==='health-professional'?'Profesional de salud':'Acompañamiento');addFact(facts,'Experiencia en crisis',data.application.crisisExperience?'Sí':'No');addFact(facts,'Procedencia',data.application.referralSource);addFact(facts,'Compromiso de supervisión',data.application.supervisionCommitment?'Aceptado':'No aceptado');addFact(facts,'Postulación',data.application.status);addFact(facts,'Fecha de postulación',displayDate(data.application.createdAt));addFact(facts,'Sesión informativa',data.application.attendedInfoSession===null?'Sin respuesta':data.application.attendedInfoSession?'Asistió':'No asistió');}
+    if(data.application){addFact(facts,'Teléfono',data.application.phone);addFact(facts,'Edad',data.application.ageRange);addFact(facts,'Ubicación',data.application.location);addFact(facts,'Perfil',data.application.pathway==='health-professional'?'Profesional de salud':'Acompañamiento');addFact(facts,'Experiencia en crisis',data.application.crisisExperience?'Sí':'No');addFact(facts,'Procedencia',data.application.referralSource);addFact(facts,'Compromiso de supervisión',data.application.supervisionCommitment?'Aceptado':'No aceptado');addFact(facts,'Solicitud histórica',data.application.status);addFact(facts,'Fecha de solicitud',displayDate(data.application.createdAt));addFact(facts,'Sesión informativa',data.application.attendedInfoSession===null?'Sin respuesta':data.application.attendedInfoSession?'Asistió':'No asistió');}
     profile.appendChild(facts);
     if(data.application?.motivation){const motivation=document.createElement('div');motivation.className='application-answer';const label=document.createElement('strong');label.textContent='Motivación';const value=document.createElement('p');value.textContent=data.application.motivation;motivation.append(label,value);profile.appendChild(motivation);}
     if(data.application?.sessionFeedback){const feedback=document.createElement('div');feedback.className='application-answer';const label=document.createElement('strong');label.textContent='Comentario sobre la sesión informativa';const value=document.createElement('p');value.textContent=data.application.sessionFeedback;feedback.append(label,value);profile.appendChild(feedback);}
@@ -243,6 +214,9 @@ function resetModuleEditor(){
 function resetLessonEditor(){
   const form=document.querySelector('#lesson-form');editingLessonId=null;form.reset();document.querySelector('#lesson-form-title').textContent='Añadir lección';document.querySelector('#lesson-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Crear lección';
 }
+function startLessonCreation(module){
+  resetLessonEditor();const form=document.querySelector('#lesson-form');form.elements.moduleId.value=module.id;document.querySelector('#lesson-form-title').textContent=`Añadir lección · ${module.title}`;form.scrollIntoView({behavior:'smooth',block:'start'});form.elements.position.focus();
+}
 function startModuleEdit(module){
   const form=document.querySelector('#module-form');editingModuleId=module.id;form.elements.courseId.value=managedCourseId;form.elements.title.value=module.title;form.elements.position.value=module.position;document.querySelector('#module-form-title').textContent='Editar módulo';document.querySelector('#module-edit-cancel').hidden=false;form.querySelector('button[type="submit"]').textContent='Actualizar módulo';form.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -254,7 +228,7 @@ function startLessonEdit(lesson){
 function renderCourseContentEditor(course,modules){
   const manager=document.querySelector('#course-content-manager');const container=document.querySelector('#managed-course-structure');manager.hidden=false;document.querySelector('#managed-course-title').textContent=course.title;container.textContent='';
   if(!modules.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Este curso todavía no tiene módulos.';container.appendChild(empty);return;}
-  modules.forEach(module=>{const article=document.createElement('article');article.className='managed-module';const header=document.createElement('div');header.className='managed-module-header';const title=document.createElement('h4');title.textContent=`${module.position}. ${module.title}`;const edit=document.createElement('button');edit.type='button';edit.className='small-button';edit.textContent='Editar módulo';edit.addEventListener('click',()=>startModuleEdit(module));header.append(title,edit);article.appendChild(header);const lessons=document.createElement('div');lessons.className='managed-lessons';module.lessons.forEach(lesson=>{const row=document.createElement('div');row.className='managed-lesson';const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=`${lesson.position}. ${lesson.title}`;const detail=document.createElement('span');detail.textContent=lesson.estimatedMinutes?`${lesson.estimatedMinutes} minutos`:'Duración no indicada';identity.append(name,detail);const lessonEdit=document.createElement('button');lessonEdit.type='button';lessonEdit.className='small-button';lessonEdit.textContent='Editar lección';lessonEdit.addEventListener('click',()=>startLessonEdit(lesson));row.append(identity,lessonEdit);lessons.appendChild(row);});if(!module.lessons.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Sin lecciones.';lessons.appendChild(empty);}article.appendChild(lessons);container.appendChild(article);});
+  modules.forEach(module=>{const article=document.createElement('article');article.className='managed-module';const header=document.createElement('div');header.className='managed-module-header';const title=document.createElement('h4');title.textContent=`${module.position}. ${module.title} · ID ${module.id}`;const actions=document.createElement('div');actions.className='managed-module-actions';const addLesson=document.createElement('button');addLesson.type='button';addLesson.className='small-button';addLesson.textContent='Añadir lección';addLesson.addEventListener('click',()=>startLessonCreation(module));const edit=document.createElement('button');edit.type='button';edit.className='small-button';edit.textContent='Editar módulo';edit.addEventListener('click',()=>startModuleEdit(module));actions.append(addLesson,edit);header.append(title,actions);article.appendChild(header);const lessons=document.createElement('div');lessons.className='managed-lessons';module.lessons.forEach(lesson=>{const row=document.createElement('div');row.className='managed-lesson';const identity=document.createElement('div');const name=document.createElement('strong');name.textContent=`${lesson.position}. ${lesson.title}`;const detail=document.createElement('span');detail.textContent=lesson.estimatedMinutes?`${lesson.estimatedMinutes} minutos`:'Duración no indicada';identity.append(name,detail);const lessonEdit=document.createElement('button');lessonEdit.type='button';lessonEdit.className='small-button';lessonEdit.textContent='Editar lección';lessonEdit.addEventListener('click',()=>startLessonEdit(lesson));row.append(identity,lessonEdit);lessons.appendChild(row);});if(!module.lessons.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Sin lecciones.';lessons.appendChild(empty);}article.appendChild(lessons);container.appendChild(article);});
 }
 async function loadCourseContentEditor(course){
   managedCourseId=Number(course.id);document.querySelectorAll('.course-selector').forEach(select=>{select.value=String(managedCourseId);});const data=await request(`/api/learning/courses/${managedCourseId}/structure`);renderCourseContentEditor(data.course,data.modules);document.querySelector('#course-content-manager').scrollIntoView({behavior:'smooth',block:'start'});
@@ -283,7 +257,7 @@ async function init(){
     if(courseRoles.includes(currentUser.role))document.querySelector('#course-form').hidden=false;
     else document.querySelector('#courses-nav').hidden=true;
     if(trackingRoles.includes(currentUser.role)){document.querySelector('#tracking-nav').hidden=false;await loadTracking();}
-    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#applications-nav').hidden=false;document.querySelector('#profile-reviews-nav').hidden=false;setupUserCreation();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadApplications(true),loadProfileReviews(true),loadDashboardStatistics()]);}
+    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#profile-reviews-nav').hidden=false;setupUserCreation();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadProfileReviews(true),loadDashboardStatistics()]);}
     if(currentUser.role==='superuser'){document.querySelector('#audit-nav').hidden=false;await loadAudit(true);}
     await loadContent();
     if(courseRoles.includes(currentUser.role)){buildLessonQuestions();bindCourseBuilder();}
@@ -296,9 +270,6 @@ document.querySelector('#logout').addEventListener('click',async()=>{try{await r
 document.querySelector('#audit-more').addEventListener('click',()=>loadAudit());
 document.querySelector('#audit-filters').addEventListener('submit',event=>{event.preventDefault();loadAudit(true);});
 document.querySelector('#audit-clear').addEventListener('click',()=>{document.querySelector('#audit-filters').reset();loadAudit(true);});
-document.querySelector('#application-filters').addEventListener('submit',event=>{event.preventDefault();loadApplications(true);});
-document.querySelector('#applications-clear').addEventListener('click',()=>{const form=document.querySelector('#application-filters');form.reset();form.elements.status.value='pending';loadApplications(true);});
-document.querySelector('#applications-more').addEventListener('click',()=>loadApplications());
 document.querySelector('#profile-review-filters').addEventListener('submit',event=>{event.preventDefault();loadProfileReviews(true);});
 document.querySelector('#profile-reviews-clear').addEventListener('click',()=>{const form=document.querySelector('#profile-review-filters');form.reset();form.elements.status.value='submitted';loadProfileReviews(true);});
 document.querySelector('#profile-reviews-more').addEventListener('click',()=>loadProfileReviews());
