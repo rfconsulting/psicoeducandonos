@@ -39,6 +39,13 @@ npm run migrate:p7
 npm run migrate:p8
 npm run migrate:p9
 npm run migrate:p10
+npm run migrate:p11
+npm run migrate:p12
+npm run migrate:p13
+npm run migrate:p14
+npm run migrate:p15
+npm run migrate:p16
+npm run migrate:p17
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -417,7 +424,9 @@ npm run check:secrets
 
 Validación posterior:
 
-- `/` responde `200` y muestra la landing del diplomado.
+- `/` responde `200` y muestra la portada corporativa.
+- `/diplomado.html` responde `200` y muestra la landing del diplomado.
+- `/postulacion.html` responde `404`.
 - `/login.html` responde `200`.
 - `/styles.css` se entrega como `text/css`.
 - `/api/health` responde `200` con `{"status":"ok"}`.

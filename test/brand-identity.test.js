@@ -15,11 +15,11 @@ test('los estilos usan la paleta base del manual de marca', () => {
 });
 
 test('el wordmark oficial se aplica sin colorear el punto y coma', () => {
-  const asset = path.join(root, 'public', 'assets', 'logo suelto1.jpg');
+  const asset = path.join(root, 'public', 'assets', 'logo.png');
   assert.equal(fs.existsSync(asset), true);
   for (const file of ['styles.css', 'auth.css']) {
     const css = fs.readFileSync(path.join(root, 'public', file), 'utf8');
-    assert.match(css, /logo%20suelto1\.jpg/);
+    assert.match(css, /content\s*:\s*url\(["']assets\/logo\.png["']\)/);
   }
 });
 

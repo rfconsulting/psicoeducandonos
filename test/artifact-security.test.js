@@ -43,6 +43,7 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
       fs.writeFileSync(path.join(sourceRoot, directory, 'placeholder.txt'), 'contenido seguro');
     }
     fs.writeFileSync(path.join(sourceRoot, 'scripts', 'init-database.js'), 'console.log("init");');
+    fs.writeFileSync(path.join(sourceRoot, 'scripts', 'migrate-p17.js'), 'console.log("p17");');
     fs.writeFileSync(
       path.join(sourceRoot, 'scripts', 'bootstrap-superuser.js'),
       ['SUPERUSER', 'PASSWORD=unsafe'].join('_')
@@ -51,7 +52,8 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
       scripts: {
         start: 'node src/server.js',
         prestart: 'node scripts/bootstrap-superuser.js',
-        'db:init': 'node scripts/init-database.js'
+        'db:init': 'node scripts/init-database.js',
+        'migrate:p17': 'node scripts/migrate-p17.js'
       }
     }));
     fs.writeFileSync(path.join(sourceRoot, 'package-lock.json'), '{}');
@@ -68,6 +70,8 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
     assert.equal(fs.existsSync(path.join(artifact, 'scripts', 'bootstrap-superuser.js')), false);
     const packaged = JSON.parse(fs.readFileSync(path.join(artifact, 'package.json'), 'utf8'));
     assert.equal(packaged.scripts.prestart, undefined);
+    assert.equal(packaged.scripts['migrate:p17'], 'node scripts/migrate-p17.js');
+    assert.equal(fs.existsSync(path.join(artifact, 'scripts', 'migrate-p17.js')), true);
     assert.deepEqual(fs.readdirSync(temporaryParent), []);
   } finally {
     fs.rmSync(sourceRoot, { recursive: true, force: true });
