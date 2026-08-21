@@ -83,9 +83,9 @@ router.post('/:id/decisions', requireCapability(CAPABILITIES.STUDENT_PROFILE_REV
       );
       await connection.execute(
         `UPDATE student_profiles SET review_status=?,
-         approved_at=CASE WHEN ?='approved' THEN UTC_TIMESTAMP() ELSE NULL END
+         approved_at=CASE WHEN ?=1 THEN UTC_TIMESTAMP() ELSE NULL END
          WHERE user_id=?`,
-        [transition.toStatus, transition.toStatus, id]
+        [transition.toStatus, transition.toStatus === 'approved' ? 1 : 0, id]
       );
       await audit(req, 'student_profile_reviewed', 'student_profile', id, {
         decision: transition.decision, fromStatus: transition.fromStatus, toStatus: transition.toStatus

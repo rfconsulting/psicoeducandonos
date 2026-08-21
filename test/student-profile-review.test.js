@@ -27,6 +27,9 @@ test('la decisión bloquea el perfil y persiste historial y auditoría juntos', 
   assert.match(source, /INSERT INTO student_profile_reviews/);
   assert.match(source, /student_profile_reviewed/);
   assert.match(source, /required: true/);
+  assert.match(source, /approved_at=CASE WHEN \?=1 THEN UTC_TIMESTAMP\(\) ELSE NULL END/);
+  assert.match(source, /transition\.toStatus === 'approved' \? 1 : 0/);
+  assert.doesNotMatch(source, /\?='approved'/);
 });
 
 test('el estudiante recibe decisiones sin identidad del revisor', () => {
