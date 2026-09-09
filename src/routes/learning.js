@@ -9,6 +9,7 @@ const { courseForManagement: findManageableCourse } = require('../services/cours
 const { supportStatusForStudent } = require('../services/student-support');
 const { catalogAvailability } = require('../services/course-enrollment');
 const { sequenceLessons } = require('../services/lesson-sequencing');
+const { refreshEnrollmentCompletion } = require('../services/module-certification');
 
 const router = express.Router();
 const clean = (value, max) => String(value || '').trim().slice(0, max);
@@ -291,8 +292,29 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
       const [progress] = await pool.execute('SELECT lesson_id AS lessonId FROM lesson_progress WHERE enrollment_id=? AND completed_at IS NOT NULL', [enrollment.id]);
       completedLessonIds = new Set(progress.map(item => item.lessonId));
     }
+    let certificationRows = [];
+    if (moduleIds.length) {
+      const placeholders = moduleIds.map(() => '?').join(',');
+      const values = [...moduleIds];
+      let recordJoin = '';
+      if (enrollment) {
+        recordJoin = `LEFT JOIN module_certification_records r ON r.question_id=q.id AND r.enrollment_id=?`;
+        values.push(enrollment.id);
+      }
+      [certificationRows] = await pool.execute(`SELECT q.id AS questionId,q.module_id AS moduleId,q.area,q.question_text AS question,q.published,
+        ${enrollment ? "COALESCE(r.answer_text,'')" : "''"} AS answer,
+        ${enrollment ? "COALESCE(r.answer_status,'pending')" : "'pending'"} AS answerStatus,
+        ${enrollment ? 'COALESCE(r.certified,FALSE)' : 'FALSE'} AS certified,
+        ${enrollment ? "COALESCE(r.teacher_observation,'')" : "''"} AS observation
+        FROM module_certification_questions q ${recordJoin}
+        WHERE q.module_id IN (${placeholders})${req.authUser.role === 'student' ? ' AND q.published=TRUE' : ''}
+        ORDER BY q.module_id,FIELD(q.area,'supervision','practice','personal_work')`,
+      enrollment ? [enrollment.id, ...moduleIds] : moduleIds);
+      certificationRows.forEach(item => { item.certified = Boolean(item.certified); item.published = Boolean(item.published); });
+    }
     const rawStructure = modules.map(module => ({
       ...module,
+      certification: certificationRows.filter(item => item.moduleId === module.id),
       lessons: lessons.filter(lesson => lesson.moduleId === module.id).map(lesson => ({
         ...lesson,
         videoEmbedUrl: youtubeEmbedUrl(lesson.videoUrl),
@@ -361,27 +383,7 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
          ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at)`,
         [rows[0].enrollmentId, lessonId]
       );
-      const [[totals]] = await connection.execute(
-        `SELECT COUNT(l.id) AS totalLessons,
-                COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS completedLessons
-         FROM course_enrollments e
-         JOIN course_modules m ON m.course_id=e.course_id
-         JOIN lessons l ON l.module_id=m.id
-         LEFT JOIN lesson_progress lp ON lp.enrollment_id=e.id AND lp.lesson_id=l.id
-         WHERE e.id=?`,
-        [rows[0].enrollmentId]
-      );
-      if (Number(totals.totalLessons) > 0 && Number(totals.totalLessons) === Number(totals.completedLessons)) {
-        await connection.execute(
-          "UPDATE course_enrollments SET status='completed',completed_at=UTC_TIMESTAMP() WHERE id=?",
-          [rows[0].enrollmentId]
-        );
-      } else {
-        await connection.execute(
-          "UPDATE course_enrollments SET status='active',completed_at=NULL WHERE id=?",
-          [rows[0].enrollmentId]
-        );
-      }
+      await refreshEnrollmentCompletion(connection, rows[0].enrollmentId);
       await audit(req, 'lesson_progress_updated', 'lesson', lessonId, { completed: true }, { db: connection, required: true });
       return true;
     });

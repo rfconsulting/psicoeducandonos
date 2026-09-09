@@ -3317,3 +3317,4 @@ body :is(h1, h2, h3, h4, .article-summary) {
         min-height: 82px
     }
 }
+.certification-question-editor{border:1px solid #d6ddd9;border-radius:12px;margin:1.25rem 0;padding:1rem}.certification-question-editor legend{font-weight:700;padding:0 .4rem}.module-certification-review{border-top:1px solid #d6ddd9;margin-top:1.25rem;padding-top:1.25rem}.module-certification-review h5{font-size:1.05rem;margin:0 0 1rem}.certification-question{font-weight:600;margin:.5rem 0}.certification-answer{background:#fff;border-left:3px solid #1699e5;margin:.35rem 0 1rem;padding:.75rem}.module-certification{margin-top:2rem}.certification-answer-form{border-top:1px solid #d6ddd9;padding:1rem 0}.certification-answer-form label{display:block;font-weight:700}.certification-answer-form textarea{box-sizing:border-box;width:100%}.certification-observation{background:#f2f5f3;border-radius:8px;padding:.65rem}

@@ -129,7 +129,28 @@ router.get('/students/:id/academic-record', requireCapability(CAPABILITIES.STUDE
       record.personalWorkCompleted = Boolean(record.personalWorkCompleted);
       record.therapyAttendance = record.personalWorkCompleted;
       record.progress = progressPercentage(record.completedLessons, record.totalLessons);
+      record.modules = [];
     });
+    if (records.length) {
+      const enrollmentIds = records.map(record => record.enrollmentId);
+      const placeholders = enrollmentIds.map(() => '?').join(',');
+      const [moduleRows] = await pool.execute(`SELECT e.id AS enrollmentId,m.id AS moduleId,m.title AS moduleTitle,m.position,
+        q.id AS questionId,q.area,q.question_text AS question,COALESCE(r.answer_text,'') AS answer,
+        COALESCE(r.answer_status,'pending') AS answerStatus,COALESCE(r.certified,FALSE) AS certified,
+        COALESCE(r.teacher_observation,'') AS observation
+        FROM course_enrollments e JOIN course_modules m ON m.course_id=e.course_id
+        JOIN module_certification_questions q ON q.module_id=m.id AND q.published=TRUE
+        LEFT JOIN module_certification_records r ON r.enrollment_id=e.id AND r.module_id=m.id AND r.area=q.area
+        WHERE e.id IN (${placeholders}) ORDER BY e.id,m.position,FIELD(q.area,'supervision','practice','personal_work')`, enrollmentIds);
+      for (const record of records) {
+        const rows = moduleRows.filter(row => Number(row.enrollmentId) === Number(record.enrollmentId));
+        const moduleIds = [...new Set(rows.map(row => row.moduleId))];
+        record.modules = moduleIds.map(moduleId => {
+          const areas = rows.filter(row => Number(row.moduleId) === Number(moduleId)).map(row => ({ ...row, certified: Boolean(row.certified) }));
+          return { id: moduleId, title: areas[0].moduleTitle, position: areas[0].position, approved: areas.length === 3 && areas.every(area => area.certified), areas };
+        });
+      }
+    }
     const [applications] = await pool.execute(
       `SELECT phone,age_range AS ageRange,location,pathway,crisis_experience AS crisisExperience,
        motivation,referral_source AS referralSource,supervision_commitment AS supervisionCommitment,

@@ -121,6 +121,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/content', require('./routes/content'));
 app.use('/api/learning', require('./routes/learning'));
+app.use('/api/module-certification', require('./routes/module-certification'));
 app.use('/api/audit-log', require('./routes/audit-log'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/student-profile', require('./routes/student-profile'));

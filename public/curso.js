@@ -183,6 +183,12 @@ function lessonNavigation(lesson) {
   return navigation;
 }
 
+const certificationLabels={supervision:'Supervisión',practice:'Práctica',personal_work:'Trabajo personal'};
+function renderModuleCertification(module){
+  const section=document.createElement('section');section.className='lesson-quiz module-certification';const heading=document.createElement('h3');heading.textContent='Certificación del módulo';const intro=document.createElement('p');intro.textContent='Responde sobre tu práctica, supervisión y trabajo personal. El profesor revisará cada respuesta.';section.append(heading,intro);
+  module.certification.forEach(item=>{const form=document.createElement('form');form.className='certification-answer-form';const label=document.createElement('label');label.textContent=certificationLabels[item.area];const question=document.createElement('p');question.className='certification-question';question.textContent=item.question;const textarea=document.createElement('textarea');textarea.name='answer';textarea.rows=5;textarea.maxLength=10000;textarea.required=true;textarea.value=item.answer||'';const state=document.createElement('p');state.className=item.certified?'form-message success':'form-message';state.textContent=item.certified?'✓ Certificado por el profesor':item.answerStatus==='changes_requested'?'Requiere correcciones':item.answerStatus==='submitted'?'Enviado para revisión':'Pendiente de envío';const observation=document.createElement('p');observation.className='certification-observation';observation.textContent=item.observation?`Observación del profesor: ${item.observation}`:'';const button=document.createElement('button');button.type='submit';button.className='small-button';button.textContent=item.answer?'Actualizar y enviar':'Enviar respuesta';button.disabled=item.certified;form.append(label,question,textarea,state,observation,button);form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;try{const data=await request(`/api/module-certification/modules/${module.id}/answer`,{method:'PATCH',body:JSON.stringify({area:item.area,answer:textarea.value})});item.answer=textarea.value;item.answerStatus='submitted';item.certified=false;state.className='form-message success';state.textContent=data.message;}catch(error){state.className='form-message error';state.textContent=error.message;button.disabled=false;}});section.appendChild(form);});return section;
+}
+
 function renderSelectedLesson() {
   const workspace = document.querySelector('#lesson-workspace');
   workspace.textContent = '';
@@ -242,6 +248,7 @@ function renderSelectedLesson() {
       }
     }));
   }
+  if(module?.certification?.length===3&&module.lessons[module.lessons.length-1]?.id===lesson.id)workspace.appendChild(renderModuleCertification(module));
   workspace.appendChild(lessonNavigation(lesson));
 }
 

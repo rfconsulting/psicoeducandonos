@@ -113,6 +113,13 @@
                 <div class="field"><label>Posición</label><input name="position" type="number" min="1" max="1000" required></div>
               </div>
               <div class="field"><label>Título del módulo</label><input name="title" maxlength="180" required></div>
+              <fieldset class="certification-question-editor">
+                <legend>Preguntas de certificación por módulo</legend>
+                <p class="field-help">Al publicar las tres preguntas, el alumno podrá responderlas y el profesor certificar cada requisito.</p>
+                <div class="field"><label>Pregunta de supervisión</label><textarea name="certificationSupervision" maxlength="2000" rows="3"></textarea></div>
+                <div class="field"><label>Pregunta de práctica</label><textarea name="certificationPractice" maxlength="2000" rows="3"></textarea></div>
+                <div class="field"><label>Pregunta de trabajo personal</label><textarea name="certificationPersonalWork" maxlength="2000" rows="3"></textarea></div>
+              </fieldset>
               <div class="builder-actions"><button class="small-button secondary-button" id="module-edit-cancel" type="button" hidden>Cancelar edición</button><button class="submit-button compact-button" type="submit">Crear módulo</button></div><p class="form-message"></p>
             </form>
             <form class="editor-form" id="lesson-form">
