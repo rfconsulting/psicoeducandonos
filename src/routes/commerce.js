@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const pool = require('../config/database');
 const env = require('../config/env');
-const { requireAuth, requireApprovedStudent, requireCapability, verifyCsrf } = require('../middleware/security');
+const { requireAuth, requireRole, requireApprovedStudent, requireCapability, verifyCsrf } = require('../middleware/security');
 const { CAPABILITIES } = require('../constants/access');
 const { courseForManagement } = require('../services/course-management');
 const { fakeProvider, mercadoPagoProvider, paypalProvider, verifySignature, verifyMercadoPagoSignature } = require('../services/payment-provider');
@@ -98,7 +98,7 @@ router.post('/courses/:courseId/checkout', requireApprovedStudent, verifyCsrf, a
   } catch (error) { return next(error); }
 });
 
-router.post('/consultation-holds/:holdId/checkout', requireApprovedStudent, verifyCsrf, async (req, res, next) => {
+router.post('/consultation-holds/:holdId/checkout', requireRole('student'), verifyCsrf, async (req, res, next) => {
   try {
     if (env.paymentProvider === 'disabled') return res.status(503).json({ error: 'Los pagos todavía no están habilitados.' });
     const holdId = String(req.params.holdId || '').slice(0, 36); const priceId = Number(req.body.priceId);

@@ -59,12 +59,14 @@
     "express-rate-limit": "^8.6.2",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
-    "mysql2": "^3.14.3",
+    "mysql2": "^3.24.4",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "resend": "^6.18.0"
   },
   "overrides": {
-    "ip-address": "^10.5.0"
+    "ip-address": "^10.5.0",
+    "mysql2": "$mysql2",
+    "qs": "^6.16.0"
   }
 }

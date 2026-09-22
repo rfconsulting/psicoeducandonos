@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const express = require('express');
 const pool = require('../config/database');
-const { requireAuth, requireApprovedStudent, requireCapability, verifyCsrf } = require('../middleware/security');
+const { requireAuth, requireRole, requireCapability, verifyCsrf } = require('../middleware/security');
 const { CAPABILITIES, hasCapability } = require('../constants/access');
 const { MAX_PHOTO_BYTES, photoMime } = require('../validation/professional-photo');
 const { WEEKDAYS, validProfessionalType, validServiceType, professionalCanOffer, validTimezone, minutes, slotsForDay, conflictsWithConsultation, zonedDateTimeToUtc, localDateTime } = require('../services/scheduling');
@@ -50,7 +50,7 @@ router.get('/professionals/:professionalId/public-photo', async (req, res, next)
   } catch (error) { return next(error); }
 });
 
-router.get('/services', requireApprovedStudent, async (_req, res, next) => {
+router.get('/services', requireRole('student'), async (_req, res, next) => {
   try {
     const [services] = await pool.execute(`SELECT s.id,s.service_type AS serviceType,s.name,s.description,s.duration_minutes AS durationMinutes,
       p.id AS professionalId,p.professional_type AS professionalType,p.specialties,p.bio,p.timezone,
@@ -68,7 +68,7 @@ router.get('/services', requireApprovedStudent, async (_req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.get('/appointments/my', requireApprovedStudent, async (req, res, next) => {
+router.get('/appointments/my', requireRole('student'), async (req, res, next) => {
   try {
     const [appointments] = await pool.execute(`SELECT a.public_id AS reference,a.start_at AS startAt,a.end_at AS endAt,a.timezone,a.status,
       s.name AS serviceName,u.full_name AS professionalName,o.public_id AS orderReference,o.status AS orderStatus
@@ -78,7 +78,7 @@ router.get('/appointments/my', requireApprovedStudent, async (req, res, next) =>
   } catch (error) { return next(error); }
 });
 
-router.get('/services/:serviceId/slots', requireApprovedStudent, async (req, res, next) => {
+router.get('/services/:serviceId/slots', requireRole('student'), async (req, res, next) => {
   try {
     const serviceId = Number(req.params.serviceId); const date = text(req.query.date, 10);
     if (!Number.isSafeInteger(serviceId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(422).json({ error: 'Servicio o fecha inválida.' });
@@ -103,7 +103,7 @@ router.get('/services/:serviceId/slots', requireApprovedStudent, async (req, res
   } catch (error) { return next(error); }
 });
 
-router.post('/services/:serviceId/holds', requireApprovedStudent, verifyCsrf, async (req, res, next) => {
+router.post('/services/:serviceId/holds', requireRole('student'), verifyCsrf, async (req, res, next) => {
   try {
     const serviceId = Number(req.params.serviceId); const startAt = new Date(req.body.startAt);
     if (!Number.isSafeInteger(serviceId) || Number.isNaN(startAt.getTime()) || startAt <= new Date()) return res.status(422).json({ error: 'Servicio u horario inválido.' });

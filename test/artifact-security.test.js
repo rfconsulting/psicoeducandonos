@@ -53,6 +53,7 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
         start: 'node src/server.js',
         prestart: 'node scripts/bootstrap-superuser.js',
         'db:init': 'node scripts/init-database.js',
+        'db:migrate': 'npm run migrate:p17',
         'migrate:p17': 'node scripts/migrate-p17.js'
       }
     }));
@@ -70,6 +71,7 @@ test('conserva el artefacto válido y limpia siempre el staging temporal', () =>
     assert.equal(fs.existsSync(path.join(artifact, 'scripts', 'bootstrap-superuser.js')), false);
     const packaged = JSON.parse(fs.readFileSync(path.join(artifact, 'package.json'), 'utf8'));
     assert.equal(packaged.scripts.prestart, undefined);
+    assert.equal(packaged.scripts['db:migrate'], 'npm run migrate:p17');
     assert.equal(packaged.scripts['migrate:p17'], 'node scripts/migrate-p17.js');
     assert.equal(fs.existsSync(path.join(artifact, 'scripts', 'migrate-p17.js')), true);
     assert.deepEqual(fs.readdirSync(temporaryParent), []);

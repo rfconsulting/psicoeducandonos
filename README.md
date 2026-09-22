@@ -25,27 +25,10 @@ Landing y plataforma educativa construida con HTML, CSS, JavaScript, Node.js/Exp
 npm install
 ```
 
-6. Aplica las migraciones de seguridad:
+6. Aplica todas las migraciones en orden:
 
 ```powershell
-npm run migrate:p0
-npm run migrate:p1
-npm run migrate:p2
-npm run migrate:p3
-npm run migrate:p4
-npm run migrate:p5
-npm run migrate:p6
-npm run migrate:p7
-npm run migrate:p8
-npm run migrate:p9
-npm run migrate:p10
-npm run migrate:p11
-npm run migrate:p12
-npm run migrate:p13
-npm run migrate:p14
-npm run migrate:p15
-npm run migrate:p16
-npm run migrate:p17
+npm run db:migrate
 ```
 
 7. Crea el primer superusuario siguiendo la sección siguiente.
@@ -380,24 +363,22 @@ La ejecución elimina tokens usados o expirados, borra eventos de auditoría ven
 ## Despliegue en Hostinger
 
 La aplicación productiva utiliza Node.js 20, Express y `src/server.js` como
-archivo de entrada. Para instalaciones nuevas o cambios de modelo ejecuta:
+archivo de entrada. Antes de activar cada versión en Hostinger, respalda la
+base de datos y ejecuta desde el directorio del artefacto instalado:
 
 ```powershell
 npm run db:init
-npm run migrate:p5
-npm run migrate:p6
-npm run migrate:p7
-npm run migrate:p8
-npm run migrate:p9
-npm run migrate:p10
+npm run db:migrate
 ```
 
 En producción configura `NODE_ENV=production`, `TRUST_PROXY=1`,
 `APP_PUBLIC_URL=https://psicoeducandonos.org` y las credenciales de la base
 MySQL asignada al dominio. En una ejecución normal, `npm start` invoca
 `prestart`; el despliegue de aplicaciones JavaScript de Hostinger inicia
-directamente `src/server.js`, por lo que las migraciones deben verificarse
-explícitamente durante el despliegue.
+directamente `src/server.js`, por lo que debes completar las migraciones antes
+de activar la nueva versión. Si alguna falla, detén el despliegue y no inicies
+el servidor con el esquema incompleto. Comprueba después `/api/health`, el
+inicio de sesión y una ruta protegida; registra versión, respaldo y resultado.
 
 También son obligatorios la API key de Resend y un remitente perteneciente a
 un dominio verificado. No deben publicarse en Git ni reutilizarse como
