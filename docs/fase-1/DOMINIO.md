@@ -37,6 +37,27 @@ Todos -> Notifications / Audit / Observability
 - Academic crea matrícula solo desde una fuente autorizada e idempotente.
 - Scheduling controla disponibilidad y exclusión temporal.
 
+### Clasificación profesional
+
+La profesión no es un rol de autorización. Un usuario conserva su rol de
+acceso y, cuando presta consultas, recibe un `professional_profile` con uno de
+estos tipos:
+
+| Tipo interno | Clasificación | Servicio compatible |
+|---|---|---|
+| `psychologist` | Psicólogo/a | `psychology` |
+| `psychiatrist` | Psiquiatra | `psychiatry` |
+| `counselor` | Consejero/a u orientador/a | `counseling` |
+
+Psicología y psiquiatría requieren matrícula o licencia profesional. La
+clasificación no concede permisos administrativos ni sustituye la verificación
+humana de credenciales.
+
+El ciclo operativo es `pending -> verified | rejected`. Solo un perfil con
+credenciales `verified` y estado `active` puede publicar servicios y
+disponibilidad o aparecer en la agenda del cliente. Un perfil verificado puede
+pasar a `suspended` y reactivarse conservando el historial de auditoría.
+
 ## Estados canónicos
 
 ### Cuenta

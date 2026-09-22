@@ -96,6 +96,8 @@ router.get('/courses', requireAuth, async (req, res, next) => {
     const courseIds = courses.map(course => course.id);
     if (courseIds.length) {
       const placeholders = courseIds.map(() => '?').join(',');
+      const [summaries] = await pool.execute(`SELECT m.course_id AS courseId,COUNT(DISTINCT m.id) AS moduleCount,COUNT(l.id) AS lessonCount,COALESCE(SUM(l.estimated_minutes),0) AS estimatedMinutes FROM course_modules m LEFT JOIN lessons l ON l.module_id=m.id WHERE m.course_id IN (${placeholders}) GROUP BY m.course_id`, courseIds);
+      courses.forEach(course => { const summary = summaries.find(item => Number(item.courseId) === Number(course.id)); course.moduleCount = Number(summary?.moduleCount || 0); course.lessonCount = Number(summary?.lessonCount || 0); course.estimatedMinutes = Number(summary?.estimatedMinutes || 0); });
       const [prices] = await pool.execute(`SELECT p.course_id AS courseId,pp.id,pp.currency,pp.amount_minor AS amountMinor FROM products p JOIN product_prices pp ON pp.product_id=p.id AND pp.active=TRUE WHERE p.active=TRUE AND p.course_id IN (${placeholders}) ORDER BY pp.id DESC`, courseIds);
       courses.forEach(course => { course.prices = prices.filter(price => Number(price.courseId) === Number(course.id)).map(({ courseId: _courseId, ...price }) => price); });
     } else courses.forEach(course => { course.prices = []; });
@@ -104,6 +106,9 @@ router.get('/courses', requireAuth, async (req, res, next) => {
       const [enrollments] = await pool.execute("SELECT course_id AS courseId FROM course_enrollments WHERE student_id=? AND status IN ('active','completed')", [req.session.user.id]);
       const enrolledIds = new Set(enrollments.map(item => Number(item.courseId)));
       courses.forEach(course => {
+        course.prices = course.prices.filter(price => env.paymentProvider === 'fake' ||
+          (price.currency === 'USD' && ['paypal', 'multi'].includes(env.paymentProvider)) ||
+          (price.currency === 'ARS' && ['mercadopago', 'multi'].includes(env.paymentProvider)));
         course.availability = catalogAvailability(course, {
           approved: profile?.reviewStatus === 'approved',
           enrolled: enrolledIds.has(Number(course.id)),
@@ -114,6 +119,23 @@ router.get('/courses', requireAuth, async (req, res, next) => {
     const result = page(courses, paging.limit);
     res.json({ courses: result.items, nextCursor: result.nextCursor });
   } catch (error) { next(error); }
+});
+
+router.get('/courses/:courseId/preview', requireAuth, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isSafeInteger(courseId) || courseId < 1) return res.status(422).json({ error: 'Curso inválido.' });
+    const [[course]] = await pool.execute('SELECT id,status,creator_id AS creatorId FROM courses WHERE id=? LIMIT 1', [courseId]);
+    if (!course || (course.status !== 'published' && !hasCapability(req.authUser.role, CAPABILITIES.COURSE_MANAGE_ALL) && Number(course.creatorId) !== Number(req.authUser.id))) return res.status(404).json({ error: 'Curso no encontrado.' });
+    const [rows] = await pool.execute(`SELECT m.id AS moduleId,m.title AS moduleTitle,m.position AS modulePosition,l.title AS lessonTitle,l.position AS lessonPosition,l.estimated_minutes AS estimatedMinutes FROM course_modules m LEFT JOIN lessons l ON l.module_id=m.id WHERE m.course_id=? ORDER BY m.position,l.position`, [courseId]);
+    const modules = [];
+    for (const row of rows) {
+      let module = modules.find(item => item.id === row.moduleId);
+      if (!module) { module = { id: row.moduleId, title: row.moduleTitle, lessons: [] }; modules.push(module); }
+      if (row.lessonTitle) module.lessons.push({ title: row.lessonTitle, estimatedMinutes: Number(row.estimatedMinutes || 0) });
+    }
+    return res.json({ modules });
+  } catch (error) { return next(error); }
 });
 
 router.post('/courses', requireCapability(CAPABILITIES.COURSE_CREATE), verifyCsrf, async (req, res, next) => {

@@ -64,7 +64,12 @@ const env = {
   fakePaymentWebhookSecret: String(process.env.FAKE_PAYMENT_WEBHOOK_SECRET || '').trim(),
   mercadoPagoAccessToken: String(process.env.MERCADOPAGO_ACCESS_TOKEN || '').trim(),
   mercadoPagoWebhookSecret: String(process.env.MERCADOPAGO_WEBHOOK_SECRET || '').trim(),
-  mercadoPagoUserId: String(process.env.MERCADOPAGO_USER_ID || '').trim()
+  mercadoPagoUserId: String(process.env.MERCADOPAGO_USER_ID || '').trim(),
+  paypalEnvironment: String(process.env.PAYPAL_ENVIRONMENT || 'sandbox').trim().toLowerCase(),
+  paypalClientId: String(process.env.PAYPAL_CLIENT_ID || '').trim(),
+  paypalClientSecret: String(process.env.PAYPAL_CLIENT_SECRET || '').trim(),
+  paypalWebhookId: String(process.env.PAYPAL_WEBHOOK_ID || '').trim(),
+  paypalMerchantId: String(process.env.PAYPAL_MERCHANT_ID || '').trim()
 };
 
 if (env.emailProvider !== 'resend') throw new Error('EMAIL_PROVIDER debe ser resend.');
@@ -73,10 +78,12 @@ if (env.isProduction && !env.emailFrom) throw new Error('EMAIL_FROM es obligator
 if (env.isProduction && !process.env.APP_PUBLIC_URL) throw new Error('APP_PUBLIC_URL es obligatorio en producción.');
 if (env.mfaEncryptionKey && !/^[a-f0-9]{64}$/i.test(env.mfaEncryptionKey)) throw new Error('MFA_ENCRYPTION_KEY debe contener exactamente 64 caracteres hexadecimales.');
 if (env.isProduction && !env.mfaEncryptionKey) throw new Error('MFA_ENCRYPTION_KEY es obligatorio en producción.');
-if (!['disabled', 'fake', 'mercadopago'].includes(env.paymentProvider)) throw new Error('PAYMENT_PROVIDER debe ser disabled, fake o mercadopago.');
+if (!['disabled', 'fake', 'mercadopago', 'paypal', 'multi'].includes(env.paymentProvider)) throw new Error('PAYMENT_PROVIDER debe ser disabled, fake, mercadopago, paypal o multi.');
 if (env.isProduction && env.paymentProvider === 'fake') throw new Error('El proveedor de pagos fake no puede utilizarse en producción.');
 if (env.paymentProvider === 'fake' && env.fakePaymentWebhookSecret.length < 32) throw new Error('FAKE_PAYMENT_WEBHOOK_SECRET debe tener al menos 32 caracteres.');
-if (env.paymentProvider === 'mercadopago' && (!env.mercadoPagoAccessToken || env.mercadoPagoWebhookSecret.length < 32 || !/^\d+$/.test(env.mercadoPagoUserId))) throw new Error('La configuración de Mercado Pago está incompleta.');
+if (['mercadopago', 'multi'].includes(env.paymentProvider) && (!env.mercadoPagoAccessToken || env.mercadoPagoWebhookSecret.length < 32 || !/^\d+$/.test(env.mercadoPagoUserId))) throw new Error('La configuración de Mercado Pago está incompleta.');
+if (!['sandbox', 'production'].includes(env.paypalEnvironment)) throw new Error('PAYPAL_ENVIRONMENT debe ser sandbox o production.');
+if (['paypal', 'multi'].includes(env.paymentProvider) && (!env.paypalClientId || !env.paypalClientSecret || !env.paypalWebhookId || !env.paypalMerchantId)) throw new Error('La configuración de PayPal está incompleta.');
 
 env.randomToken = () => crypto.randomBytes(32).toString('hex');
 module.exports = Object.freeze(env);

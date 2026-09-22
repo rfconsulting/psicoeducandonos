@@ -2,7 +2,37 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { validTimezone, minutes, slotsForDay, zonedDateTimeToUtc, localDateTime } = require('../src/services/scheduling');
+const { PROFESSIONAL_TYPES, SERVICE_TYPES, validProfessionalType, validServiceType, professionalCanOffer, validTimezone, minutes, slotsForDay, zonedDateTimeToUtc, localDateTime } = require('../src/services/scheduling');
+
+test('clasifica psicología, psiquiatría y consejería como tipos profesionales separados del rol', () => {
+  assert.deepEqual(PROFESSIONAL_TYPES, ['psychologist', 'psychiatrist', 'counselor']);
+  assert.deepEqual(SERVICE_TYPES, ['psychology', 'psychiatry', 'counseling']);
+  assert.equal(validProfessionalType('psychiatrist'), true);
+  assert.equal(validServiceType('psychiatry'), true);
+  assert.equal(professionalCanOffer('psychiatrist', 'psychiatry'), true);
+  assert.equal(professionalCanOffer('psychiatrist', 'psychology'), false);
+});
+
+test('la migración amplía ambos enums sin crear un rol de autorización', () => {
+  const migration = fs.readFileSync(path.join(__dirname, '../scripts/migrate-p20.js'), 'utf8');
+  const access = fs.readFileSync(path.join(__dirname, '../src/constants/access.js'), 'utf8');
+  assert.match(migration, /professional_type ENUM\('psychologist','psychiatrist','counselor'\)/);
+  assert.match(migration, /service_type ENUM\('psychology','psychiatry','counseling'\)/);
+  assert.doesNotMatch(access, /PSYCHIATRIST/);
+});
+
+test('el dashboard exige validar credenciales antes de publicar agenda', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/scheduling.js'), 'utf8');
+  const dashboard = fs.readFileSync(path.join(__dirname, '../public/dashboard.js'), 'utf8');
+  const migration = fs.readFileSync(path.join(__dirname, '../scripts/migrate-p21.js'), 'utf8');
+  assert.match(route, /credential_status='verified'/);
+  assert.match(route, /professional_credentials_/);
+  assert.match(route, /professional_profile_submitted/);
+  assert.match(dashboard, /setupProfessionalManagement/);
+  assert.match(dashboard, /Crear servicio y precio/);
+  assert.match(dashboard, /Agregar disponibilidad semanal/);
+  assert.match(migration, /credential_status ENUM\('pending','verified','rejected'\)/);
+});
 
 test('valida zona horaria y rangos de minutos', () => {
   assert.equal(validTimezone('America/Panama'), true);

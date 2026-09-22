@@ -5,14 +5,19 @@ const env = require('../config/env');
 const { requireAuth, requireApprovedStudent, requireCapability, verifyCsrf } = require('../middleware/security');
 const { CAPABILITIES } = require('../constants/access');
 const { courseForManagement } = require('../services/course-management');
-const { fakeProvider, mercadoPagoProvider, verifySignature, verifyMercadoPagoSignature } = require('../services/payment-provider');
+const { fakeProvider, mercadoPagoProvider, paypalProvider, verifySignature, verifyMercadoPagoSignature } = require('../services/payment-provider');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
 
 const router = express.Router();
-function activeProvider() {
-  if (env.paymentProvider === 'mercadopago') return mercadoPagoProvider({ accessToken: env.mercadoPagoAccessToken, appPublicUrl: env.appPublicUrl });
-  return fakeProvider({ appPublicUrl: env.appPublicUrl });
+function paypal() {
+  return paypalProvider({ environment: env.paypalEnvironment, clientId: env.paypalClientId, clientSecret: env.paypalClientSecret, webhookId: env.paypalWebhookId, appPublicUrl: env.appPublicUrl });
+}
+function activeProvider(currency) {
+  if (env.paymentProvider === 'fake') return fakeProvider({ appPublicUrl: env.appPublicUrl });
+  if (currency === 'ARS' && ['mercadopago', 'multi'].includes(env.paymentProvider)) return mercadoPagoProvider({ accessToken: env.mercadoPagoAccessToken, appPublicUrl: env.appPublicUrl });
+  if (currency === 'USD' && ['paypal', 'multi'].includes(env.paymentProvider)) return paypal();
+  return null;
 }
 
 router.post('/courses/:courseId/prices', requireCapability(CAPABILITIES.COURSE_CREATE), verifyCsrf, async (req, res, next) => {
@@ -64,6 +69,8 @@ router.post('/courses/:courseId/checkout', requireApprovedStudent, verifyCsrf, a
     const priceId = Number(req.body.priceId);
     if (!Number.isSafeInteger(courseId) || !Number.isSafeInteger(priceId)) return res.status(422).json({ error: 'Curso o precio inválido.' });
     const order = await withTransaction(async connection => {
+      const [[enrollment]] = await connection.execute("SELECT id FROM course_enrollments WHERE course_id=? AND student_id=? AND status IN ('active','completed') LIMIT 1 FOR UPDATE", [courseId, req.authUser.id]);
+      if (enrollment) return { enrolled: true };
       const [[offer]] = await connection.execute(
         `SELECT c.id AS courseId,c.title,p.id AS productId,pp.id AS priceId,pp.currency,pp.amount_minor AS amountMinor
          FROM courses c JOIN products p ON p.course_id=c.id AND p.active=TRUE
@@ -73,18 +80,19 @@ router.post('/courses/:courseId/checkout', requireApprovedStudent, verifyCsrf, a
         [courseId, priceId]
       );
       if (!offer) return null;
-      if (env.paymentProvider === 'mercadopago' && offer.currency !== 'ARS') return { unsupported: true };
+      const provider = activeProvider(offer.currency);
+      if (!provider) return { unsupported: true };
       const reference = crypto.randomUUID();
       const [created] = await connection.execute('INSERT INTO orders (public_id,buyer_user_id,currency,total_minor) VALUES (?,?,?,?)', [reference, req.authUser.id, offer.currency, offer.amountMinor]);
       await connection.execute('INSERT INTO order_items (order_id,product_id,description,unit_amount_minor) VALUES (?,?,?,?)', [created.insertId, offer.productId, offer.title, offer.amountMinor]);
-      const provider = activeProvider();
       const checkout = await provider.createCheckout({ orderReference: reference, description: offer.title, amountMinor: offer.amountMinor });
-      await connection.execute('INSERT INTO payments (order_id,provider,provider_checkout_id,provider_payment_id,currency,amount_minor) VALUES (?,?,?,?,?,?)', [created.insertId, provider.name, checkout.providerCheckoutId || null, checkout.providerPaymentId || null, offer.currency, offer.amountMinor]);
+      await connection.execute('INSERT INTO payments (order_id,provider,provider_checkout_id,provider_payment_id,checkout_url,currency,amount_minor) VALUES (?,?,?,?,?,?,?)', [created.insertId, provider.name, checkout.providerCheckoutId || null, checkout.providerPaymentId || null, checkout.checkoutUrl, offer.currency, offer.amountMinor]);
       await connection.execute("UPDATE orders SET status='processing' WHERE id=?", [created.insertId]);
       await audit(req, 'checkout_created', 'order', created.insertId, { courseId, currency: offer.currency, amountMinor: offer.amountMinor }, { db: connection, required: true });
       return { reference, checkoutUrl: checkout.checkoutUrl };
     });
-    if (order?.unsupported) return res.status(422).json({ error: 'Mercado Pago solo está habilitado para ofertas en ARS.' });
+    if (order?.enrolled) return res.status(409).json({ error: 'Ya estás inscrito en este curso.' });
+    if (order?.unsupported) return res.status(422).json({ error: 'No hay un proveedor habilitado para esa moneda.' });
     if (!order) return res.status(404).json({ error: 'Curso o precio no disponible.' });
     return res.status(201).json({ order });
   } catch (error) { return next(error); }
@@ -96,23 +104,23 @@ router.post('/consultation-holds/:holdId/checkout', requireApprovedStudent, veri
     const holdId = String(req.params.holdId || '').slice(0, 36); const priceId = Number(req.body.priceId);
     if (!/^[0-9a-f-]{36}$/i.test(holdId) || !Number.isSafeInteger(priceId)) return res.status(422).json({ error: 'Reserva o precio inválido.' });
     const order = await withTransaction(async connection => {
-      const [[previous]] = await connection.execute(`SELECT o.public_id AS reference FROM appointments a JOIN orders o ON o.id=a.order_id
+      const [[previous]] = await connection.execute(`SELECT o.public_id AS reference,pay.checkout_url AS checkoutUrl FROM appointments a JOIN orders o ON o.id=a.order_id JOIN payments pay ON pay.order_id=o.id
         WHERE a.hold_reference=? AND a.client_user_id=? LIMIT 1 FOR UPDATE`, [holdId, req.authUser.id]);
-      if (previous) return { reference: previous.reference, checkoutUrl: fakeProvider({ appPublicUrl: env.appPublicUrl }).createCheckout({ orderReference: previous.reference }).checkoutUrl, reused: true };
+      if (previous) return { reference: previous.reference, checkoutUrl: previous.checkoutUrl, reused: true };
       const [[offer]] = await connection.execute(`SELECT h.id AS holdId,h.professional_id AS professionalId,h.service_id AS serviceId,h.start_at AS startAt,h.end_at AS endAt,h.expires_at AS expiresAt,
         s.name,p.id AS productId,pp.currency,pp.amount_minor AS amountMinor,prof.timezone
         FROM appointment_holds h JOIN professional_services s ON s.id=h.service_id AND s.active=TRUE
-        JOIN professional_profiles prof ON prof.id=h.professional_id AND prof.status='active'
+        JOIN professional_profiles prof ON prof.id=h.professional_id AND prof.status='active' AND prof.credential_status='verified'
         JOIN products p ON p.service_id=s.id AND p.active=TRUE JOIN product_prices pp ON pp.product_id=p.id AND pp.active=TRUE
         WHERE h.id=? AND h.client_user_id=? AND h.expires_at>UTC_TIMESTAMP() AND pp.id=? LIMIT 1 FOR UPDATE`, [holdId, req.authUser.id, priceId]);
       if (!offer) return null;
-      if (env.paymentProvider === 'mercadopago' && offer.currency !== 'ARS') return { unsupported: true };
+      const provider = activeProvider(offer.currency);
+      if (!provider) return { unsupported: true };
       const reference = crypto.randomUUID();
       const [created] = await connection.execute('INSERT INTO orders (public_id,buyer_user_id,currency,total_minor) VALUES (?,?,?,?)', [reference, req.authUser.id, offer.currency, offer.amountMinor]);
       await connection.execute('INSERT INTO order_items (order_id,product_id,description,unit_amount_minor) VALUES (?,?,?,?)', [created.insertId, offer.productId, offer.name, offer.amountMinor]);
-      const provider = activeProvider();
       const checkout = await provider.createCheckout({ orderReference: reference, description: offer.name, amountMinor: offer.amountMinor });
-      await connection.execute('INSERT INTO payments (order_id,provider,provider_checkout_id,provider_payment_id,currency,amount_minor) VALUES (?,?,?,?,?,?)', [created.insertId, provider.name, checkout.providerCheckoutId || null, checkout.providerPaymentId || null, offer.currency, offer.amountMinor]);
+      await connection.execute('INSERT INTO payments (order_id,provider,provider_checkout_id,provider_payment_id,checkout_url,currency,amount_minor) VALUES (?,?,?,?,?,?,?)', [created.insertId, provider.name, checkout.providerCheckoutId || null, checkout.providerPaymentId || null, checkout.checkoutUrl, offer.currency, offer.amountMinor]);
       const appointmentReference = crypto.randomUUID();
       const [appointment] = await connection.execute(`INSERT INTO appointments
         (public_id,hold_reference,professional_id,service_id,client_user_id,start_at,end_at,timezone,status,order_id,payment_expires_at)
@@ -123,7 +131,7 @@ router.post('/consultation-holds/:holdId/checkout', requireApprovedStudent, veri
       await audit(req, 'consultation_checkout_created', 'appointment', appointment.insertId, { orderId: created.insertId, currency: offer.currency, amountMinor: offer.amountMinor }, { db: connection, required: true });
       return { reference, checkoutUrl: checkout.checkoutUrl, appointmentReference };
     });
-    if (order?.unsupported) return res.status(422).json({ error: 'Mercado Pago solo está habilitado para ofertas en ARS.' });
+    if (order?.unsupported) return res.status(422).json({ error: 'No hay un proveedor habilitado para esa moneda.' });
     if (!order) return res.status(409).json({ error: 'La reserva expiró o el precio ya no está disponible.' });
     return res.status(order.reused ? 200 : 201).json({ order });
   } catch (error) { return next(error); }
@@ -131,9 +139,25 @@ router.post('/consultation-holds/:holdId/checkout', requireApprovedStudent, veri
 
 router.get('/orders/:reference', requireAuth, async (req, res, next) => {
   try {
-    const [[order]] = await pool.execute('SELECT public_id AS reference,status,currency,total_minor AS totalMinor,paid_at AS paidAt,created_at AS createdAt FROM orders WHERE public_id=? AND buyer_user_id=? LIMIT 1', [String(req.params.reference).slice(0, 36), req.authUser.id]);
+    const [[order]] = await pool.execute(`SELECT o.public_id AS reference,o.status,o.currency,o.total_minor AS totalMinor,o.paid_at AS paidAt,o.created_at AS createdAt,
+      pay.provider,pay.provider_checkout_id AS providerCheckoutId FROM orders o LEFT JOIN payments pay ON pay.order_id=o.id
+      WHERE o.public_id=? AND o.buyer_user_id=? LIMIT 1`, [String(req.params.reference).slice(0, 36), req.authUser.id]);
     if (!order) return res.status(404).json({ error: 'Orden no encontrada.' });
     return res.json({ order });
+  } catch (error) { return next(error); }
+});
+
+router.post('/orders/:reference/paypal-capture', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    if (!['paypal', 'multi'].includes(env.paymentProvider)) return res.status(404).json({ error: 'Ruta no encontrada.' });
+    const reference = String(req.params.reference || '').slice(0, 36);
+    const [[payment]] = await pool.execute(`SELECT pay.provider_checkout_id AS providerCheckoutId,o.status
+      FROM orders o JOIN payments pay ON pay.order_id=o.id AND pay.provider='paypal'
+      WHERE o.public_id=? AND o.buyer_user_id=? LIMIT 1`, [reference, req.authUser.id]);
+    if (!payment) return res.status(404).json({ error: 'Orden de PayPal no encontrada.' });
+    if (payment.status === 'paid') return res.json({ received: true, status: 'paid' });
+    await paypal().captureOrder(payment.providerCheckoutId, `capture-${reference}`);
+    return res.status(202).json({ received: true, status: 'processing' });
   } catch (error) { return next(error); }
 });
 
@@ -191,13 +215,84 @@ router.post('/webhooks/fake', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.post('/webhooks/paypal', async (req, res, next) => {
+  try {
+    if (!['paypal', 'multi'].includes(env.paymentProvider)) return res.status(404).json({ error: 'Ruta no encontrada.' });
+    const provider = paypal();
+    if (!await provider.verifyWebhook(req.headers, req.body)) return res.status(401).json({ error: 'Firma inválida.' });
+    const eventId = String(req.body?.id || '').slice(0, 128);
+    const eventType = String(req.body?.event_type || '').slice(0, 64);
+    if (!eventId || !eventType) return res.status(422).json({ error: 'Evento inválido.' });
+    const payloadHash = crypto.createHash('sha256').update(req.rawBody || Buffer.alloc(0)).digest('hex');
+
+    if (eventType === 'PAYMENT.CAPTURE.REFUNDED') {
+      const captureId = String(req.body?.resource?.links?.find(link => link.rel === 'up')?.href || '').split('/').pop();
+      if (!captureId) return res.status(422).json({ error: 'Reembolso sin captura de origen.' });
+      const capture = await provider.fetchCapture(captureId);
+      const fullyRefunded = capture.status === 'REFUNDED';
+      await withTransaction(async connection => {
+        const [claimed] = await connection.execute("INSERT IGNORE INTO payment_events (provider,provider_event_id,event_type,payload_hash,processing_status) VALUES ('paypal',?,?,?,'ignored')", [eventId, eventType, payloadHash]);
+        if (!claimed.affectedRows) return;
+        const [[payment]] = await connection.execute("SELECT id,order_id AS orderId FROM payments WHERE provider='paypal' AND provider_payment_id=? LIMIT 1 FOR UPDATE", [captureId]);
+        if (!payment) return;
+        await connection.execute("UPDATE payment_events SET payment_id=?,processing_status='processed' WHERE provider='paypal' AND provider_event_id=?", [payment.id, eventId]);
+        if (fullyRefunded) await connection.execute("UPDATE payments SET status='refunded' WHERE id=?", [payment.id]);
+        await connection.execute('UPDATE orders SET status=? WHERE id=?', [fullyRefunded ? 'refunded' : 'partially_refunded', payment.orderId]);
+        if (fullyRefunded) await connection.execute("UPDATE appointments SET status='refunded' WHERE order_id=? AND status IN ('confirmed','completed')", [payment.orderId]);
+      });
+      return res.json({ received: true, outcome: 'processed' });
+    }
+
+    if (eventType !== 'PAYMENT.CAPTURE.COMPLETED') {
+      await pool.execute("INSERT IGNORE INTO payment_events (provider,provider_event_id,event_type,payload_hash,processing_status) VALUES ('paypal',?,?,?,'ignored')", [eventId, eventType, payloadHash]);
+      return res.json({ received: true, outcome: 'ignored' });
+    }
+
+    const captureId = String(req.body?.resource?.id || '');
+    const external = await provider.fetchCapture(captureId);
+    const reference = String(external.custom_id || external.invoice_id || '');
+    const outcome = await withTransaction(async connection => {
+      const [claimed] = await connection.execute("INSERT IGNORE INTO payment_events (provider,provider_event_id,event_type,payload_hash,processing_status) VALUES ('paypal',?,?,?,'ignored')", [eventId, eventType, payloadHash]);
+      if (!claimed.affectedRows) return 'duplicate';
+      const [[payment]] = await connection.execute(`SELECT pay.id,pay.order_id AS orderId,pay.status,pay.currency,pay.amount_minor AS amountMinor
+        FROM payments pay JOIN orders o ON o.id=pay.order_id WHERE pay.provider='paypal' AND o.public_id=? LIMIT 1 FOR UPDATE`, [reference]);
+      if (!payment) return 'ignored';
+      const valid = external.status === 'COMPLETED' && external.amount?.currency_code === 'USD'
+        && Math.round(Number(external.amount?.value) * 100) === Number(payment.amountMinor)
+        && String(external.payee?.merchant_id || '') === env.paypalMerchantId;
+      if (!valid) {
+        await connection.execute("UPDATE payment_events SET payment_id=?,processing_status='failed' WHERE provider='paypal' AND provider_event_id=?", [payment.id, eventId]);
+        return 'mismatch';
+      }
+      await connection.execute("UPDATE payment_events SET payment_id=?,processing_status='processed' WHERE provider='paypal' AND provider_event_id=?", [payment.id, eventId]);
+      if (payment.status !== 'pending') return 'duplicate_payment';
+      await connection.execute("UPDATE payments SET provider_payment_id=?,status='approved',approved_at=UTC_TIMESTAMP() WHERE id=?", [captureId, payment.id]);
+      await connection.execute("UPDATE orders SET status='paid',paid_at=UTC_TIMESTAMP() WHERE id=? AND status IN ('pending','processing')", [payment.orderId]);
+      const [[purchase]] = await connection.execute('SELECT o.buyer_user_id AS buyerId,p.course_id AS courseId,p.service_id AS serviceId FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN products p ON p.id=oi.product_id WHERE o.id=? LIMIT 1', [payment.orderId]);
+      if (purchase?.courseId) await connection.execute(`INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source,order_id) VALUES (?,?,?,'paid',?)
+        ON DUPLICATE KEY UPDATE enrollment_source='paid',order_id=VALUES(order_id),status=IF(status='completed','completed','active')`, [purchase.courseId, purchase.buyerId, purchase.buyerId, payment.orderId]);
+      if (purchase?.serviceId) {
+        const [[appointment]] = await connection.execute("SELECT id,status,payment_expires_at AS paymentExpiresAt FROM appointments WHERE order_id=? LIMIT 1 FOR UPDATE", [payment.orderId]);
+        if (appointment?.status === 'pending_payment' && new Date(appointment.paymentExpiresAt) > new Date()) {
+          await connection.execute("UPDATE appointments SET status='confirmed' WHERE id=?", [appointment.id]);
+          await connection.execute("INSERT INTO appointment_events (appointment_id,event_type,details) VALUES (?,'payment_confirmed',JSON_OBJECT('orderId',?))", [appointment.id, payment.orderId]);
+        } else await audit(req, 'payment_delivery_failed', 'order', payment.orderId, { reason: 'appointment_expired' }, { db: connection, required: true });
+      }
+      await audit(req, 'payment_approved', 'order', payment.orderId, { provider: 'paypal' }, { db: connection, required: true });
+      return 'processed';
+    });
+    if (outcome === 'mismatch') return res.status(409).json({ error: 'El pago no coincide con la orden.' });
+    return res.json({ received: true, outcome });
+  } catch (error) { return next(error); }
+});
+
 router.post('/webhooks/mercadopago', async (req, res, next) => {
   try {
-    if (env.paymentProvider !== 'mercadopago') return res.status(404).json({ error: 'Ruta no encontrada.' });
+    if (!['mercadopago', 'multi'].includes(env.paymentProvider)) return res.status(404).json({ error: 'Ruta no encontrada.' });
     const dataId = String(req.query['data.id'] || req.body?.data?.id || '').toLowerCase();
     const requestId = req.get('x-request-id');
     if (!verifyMercadoPagoSignature(env.mercadoPagoWebhookSecret, { dataId, requestId, xSignature: req.get('x-signature') })) return res.status(401).json({ error: 'Firma inválida.' });
-    const provider = activeProvider(); const external = await provider.fetchPayment(dataId);
+    const provider = activeProvider('ARS'); const external = await provider.fetchPayment(dataId);
     const reference = String(external.external_reference || ''); const eventId = `${external.id}:${external.status}:${external.date_last_updated || ''}`.slice(0, 128);
     const normalizedStatus = external.status === 'approved' ? 'approved' : ['rejected','cancelled'].includes(external.status) ? external.status : 'pending';
     const outcome = await withTransaction(async connection => {

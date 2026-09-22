@@ -230,9 +230,12 @@ router.patch('/students/:id/tracking', requireCapability(CAPABILITIES.STUDENT_TR
 router.get('/', requireCapability(CAPABILITIES.USER_LIST), async (req, res, next) => {
   try {
     const paging = pagination(req.query, 50, 100);
+    const search = String(req.query.search || '').trim().slice(0, 120);
+    const conditions = [];
     const values = [];
-    const where = paging.cursor ? 'WHERE id < ?' : '';
-    if (paging.cursor) values.push(paging.cursor);
+    if (paging.cursor) { conditions.push('id < ?'); values.push(paging.cursor); }
+    if (search) { conditions.push('(full_name LIKE ? OR email LIKE ?)'); values.push(`%${search}%`, `%${search}%`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     values.push(paging.limit);
     const [users] = await pool.execute(
       `SELECT id,full_name AS fullName,email,role,status,last_login_at AS lastLoginAt,created_at AS createdAt

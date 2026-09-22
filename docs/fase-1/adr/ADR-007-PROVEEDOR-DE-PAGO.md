@@ -2,7 +2,7 @@
 
 - Estado: aceptado
 - Fecha de decisión: 2026-08-13
-- Alcance inicial: Argentina y pagos internacionales en USD
+- Alcance inicial: Argentina con Mercado Pago o PayPal, y pagos internacionales con PayPal
 
 ## Contexto
 
@@ -18,8 +18,8 @@ Se adopta una estrategia multiproveedor progresiva detrás del contrato interno
 
 1. **Mercado Pago Checkout Pro** será el proveedor primario para Argentina, con
    precios y cobros en `ARS`.
-2. **PayPal Checkout / Orders** será el proveedor secundario para compradores
-   internacionales, con precios y cobros en `USD`.
+2. **PayPal Checkout / Orders v2** estará disponible para compradores de
+   Argentina y del resto del mundo, siempre con precios y cobros en `USD`.
 3. **Cripto** queda como extensión futura del contrato, deshabilitada y sin
    activos, cotizaciones ni direcciones almacenadas en esta etapa.
 
@@ -28,7 +28,12 @@ La selección se realiza sobre una oferta explícita elegida por el comprador:
 | Oferta | Proveedor | Moneda |
 |---|---|---|
 | Argentina / ARS | Mercado Pago | ARS |
+| Argentina / USD | PayPal | USD |
 | Internacional / USD | PayPal | USD |
+
+Mercado Pago no se ofrece fuera de Argentina. PayPal no procesa ofertas ARS.
+La persona compradora elige una oferta explícita entre las que correspondan;
+la ubicación inferida no selecciona ni convierte moneda silenciosamente.
 
 No se convertirá moneda en el navegador ni durante el checkout. Cada producto
 debe tener precios administrativos independientes en ARS y USD. El servidor
@@ -82,8 +87,9 @@ teniendo una moneda fiat de referencia y la cotización será temporal.
 1. Implementar Mercado Pago en sandbox: aprobado, pendiente, rechazo, evento
    duplicado, importe alterado, expiración y reembolso.
 2. Piloto productivo limitado en ARS y conciliación diaria.
-3. Implementar PayPal en sandbox con la misma matriz contractual.
-4. Piloto productivo internacional en USD.
+3. Implementar PayPal Orders v2 en sandbox para Argentina e internacional, con
+   captura en servidor, `PayPal-Request-Id`, webhook verificado y reembolsos.
+4. Piloto productivo en USD para compradores argentinos e internacionales.
 5. Activar pagos de consultas únicamente después de validar holds expirados y
    confirmación de cita por webhook.
 6. Evaluar cripto en un ADR separado cuando exista demanda y revisión legal.

@@ -952,6 +952,21 @@ select,
     max-width: 850px;
     margin: 0 auto
 }
+.article-reader.has-document{max-width:1080px}
+.article-document{margin:38px 0 45px;border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden;box-shadow:var(--shadow)}
+.article-document[hidden]{display:none}
+.article-document-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 26px}
+.article-document-heading span{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--coral)}
+.article-document-heading h2{margin:5px 0 0;font-family:Newsreader,serif;font-size:30px;color:var(--deep)}
+.article-document-heading .submit-button{text-decoration:none;text-align:center;white-space:nowrap}
+.article-document iframe{display:block;width:100%;height:min(82vh,1000px);min-height:480px;border:0;border-top:1px solid var(--line);background:#f5f6f4}
+.article-document>p{margin:0;padding:13px 26px;color:var(--muted);font-size:12px}
+.blog-card{display:flex;flex-direction:column;align-items:flex-start;min-height:245px}
+.blog-card h3{max-width:100%;font-size:clamp(20px,1.8vw,25px);line-height:1.22;overflow-wrap:break-word;hyphens:none}
+.blog-card p{line-height:1.55}
+.blog-card .content-link{margin-top:auto;padding-top:14px}
+.blog-card .blog-download{margin-top:0;color:var(--deep)}
+@media(max-width:600px){.article-document-heading{align-items:stretch;flex-direction:column;padding:18px}.article-document iframe{min-height:440px;height:75vh}.article-document>p{padding:12px 18px}}
 
 .article-reader>span {
     text-transform: uppercase;
@@ -963,9 +978,11 @@ select,
 
 .article-reader h1 {
     font-family: Newsreader, serif;
-    font-size: clamp(50px, 8vw, 90px);
-    line-height: 1;
-    margin: 24px 0
+    font-size: clamp(32px, 4vw, 56px);
+    line-height: 1.1;
+    margin: 24px 0;
+    overflow-wrap:break-word;
+    hyphens:none
 }
 
 .article-summary {
@@ -3318,3 +3335,18 @@ body :is(h1, h2, h3, h4, .article-summary) {
     }
 }
 .certification-question-editor{border:1px solid #d6ddd9;border-radius:12px;margin:1.25rem 0;padding:1rem}.certification-question-editor legend{font-weight:700;padding:0 .4rem}.module-certification-review{border-top:1px solid #d6ddd9;margin-top:1.25rem;padding-top:1.25rem}.module-certification-review h5{font-size:1.05rem;margin:0 0 1rem}.certification-question{font-weight:600;margin:.5rem 0}.certification-answer{background:#fff;border-left:3px solid #1699e5;margin:.35rem 0 1rem;padding:.75rem}.module-certification{margin-top:2rem}.certification-answer-form{border-top:1px solid #d6ddd9;padding:1rem 0}.certification-answer-form label{display:block;font-weight:700}.certification-answer-form textarea{box-sizing:border-box;width:100%}.certification-observation{background:#f2f5f3;border-radius:8px;padding:.65rem}
+.course-meta{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0;padding:10px 12px;border-radius:10px;background:#f2f6f3;color:var(--deep);font-size:12px;font-weight:700}
+.course-outline{margin:14px 0;border:1px solid var(--line);border-radius:10px;background:#fff}
+.course-outline summary{padding:12px 14px;cursor:pointer;font-size:13px;font-weight:700;color:var(--deep)}
+.course-outline summary:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+.course-outline-body{padding:0 14px 14px;max-height:260px;overflow:auto;font-size:12px;color:var(--muted)}
+.course-outline-body section{padding:10px 0;border-top:1px solid var(--line)}
+.course-outline-body strong{color:var(--deep)}
+.course-outline-body ul{margin:7px 0 0;padding-left:20px}
+.course-outline-body li{margin:5px 0}
+.content-card .course-admin-hint{margin:10px 0 15px;font-size:12px}
+.course-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px;padding:15px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.course-toolbar .field{display:grid;gap:6px;min-width:150px;flex:1;margin:0;font-size:12px;font-weight:700;color:var(--deep)}
+.course-toolbar input,.course-toolbar select{width:100%;min-height:40px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:var(--deep)}
+.course-toolbar .small-button{min-height:40px}
+@media(max-width:600px){.course-toolbar .field{flex-basis:100%}.course-toolbar .small-button{width:100%}}

@@ -180,16 +180,19 @@ CREATE TABLE IF NOT EXISTS lesson_question_options (
 
 CREATE TABLE IF NOT EXISTS professional_profiles (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, user_id BIGINT UNSIGNED NOT NULL,
-  professional_type ENUM('psychologist','counselor') NOT NULL, license_number VARCHAR(80) NULL, specialties VARCHAR(500) NULL, bio TEXT NULL,
+  professional_type ENUM('psychologist','psychiatrist','counselor') NOT NULL, license_number VARCHAR(80) NULL, specialties VARCHAR(500) NULL, bio TEXT NULL,
   timezone VARCHAR(64) NOT NULL, status ENUM('draft','active','suspended') NOT NULL DEFAULT 'draft',
+  credential_status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending', verification_notes VARCHAR(2000) NULL,
+  verified_by BIGINT UNSIGNED NULL, verified_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uq_professional_user (user_id), KEY idx_professional_status (status),
-  CONSTRAINT fk_professional_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+  CONSTRAINT fk_professional_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_professional_verifier FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS professional_services (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, professional_id BIGINT UNSIGNED NOT NULL,
-  service_type ENUM('psychology','counseling') NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
+  service_type ENUM('psychology','psychiatry','counseling') NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
   duration_minutes SMALLINT UNSIGNED NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), KEY idx_services_professional (professional_id,active),
@@ -232,7 +235,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 CREATE TABLE IF NOT EXISTS payments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, order_id BIGINT UNSIGNED NOT NULL, provider VARCHAR(32) NOT NULL,
-  provider_checkout_id VARCHAR(128) NULL, provider_payment_id VARCHAR(128) NULL, status ENUM('pending','approved','rejected','cancelled','refunded') NOT NULL DEFAULT 'pending',
+  provider_checkout_id VARCHAR(128) NULL, provider_payment_id VARCHAR(128) NULL, checkout_url VARCHAR(1000) NULL, status ENUM('pending','approved','rejected','cancelled','refunded') NOT NULL DEFAULT 'pending',
   currency CHAR(3) NOT NULL, amount_minor BIGINT UNSIGNED NOT NULL, approved_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uq_payment_provider_id (provider,provider_payment_id), KEY idx_payments_order (order_id),

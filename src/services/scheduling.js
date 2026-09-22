@@ -1,4 +1,11 @@
 const WEEKDAYS = ['sun','mon','tue','wed','thu','fri','sat'];
+const PROFESSIONAL_TYPES = Object.freeze(['psychologist', 'psychiatrist', 'counselor']);
+const SERVICE_TYPES = Object.freeze(['psychology', 'psychiatry', 'counseling']);
+const SERVICE_BY_PROFESSIONAL = Object.freeze({ psychologist: 'psychology', psychiatrist: 'psychiatry', counselor: 'counseling' });
+
+function validProfessionalType(value) { return PROFESSIONAL_TYPES.includes(value); }
+function validServiceType(value) { return SERVICE_TYPES.includes(value); }
+function professionalCanOffer(professionalType, serviceType) { return SERVICE_BY_PROFESSIONAL[professionalType] === serviceType; }
 
 function validTimezone(timezone) {
   try { new Intl.DateTimeFormat('en', { timeZone: timezone }).format(); return true; } catch { return false; }
@@ -42,4 +49,4 @@ function localDateTime(instant, timezone) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: parts.weekday.toLowerCase().slice(0, 3) };
 }
 
-module.exports = { WEEKDAYS, validTimezone, minutes, slotsForDay, zonedDateTimeToUtc, localDateTime };
+module.exports = { WEEKDAYS, PROFESSIONAL_TYPES, SERVICE_TYPES, validProfessionalType, validServiceType, professionalCanOffer, validTimezone, minutes, slotsForDay, zonedDateTimeToUtc, localDateTime };
