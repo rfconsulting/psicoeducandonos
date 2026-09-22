@@ -294,7 +294,7 @@ router.patch('/:id/password', requireCapability(CAPABILITIES.USER_PASSWORD_RESET
       const [update] = await connection.execute(
         `UPDATE users
          SET password_hash=?,must_change_password=TRUE,password_changed_at=UTC_TIMESTAMP(),
-             auth_version=auth_version+1,failed_login_attempts=0,locked_until=NULL
+             auth_version=auth_version+1,failed_login_attempts=0,locked_until=NULL,mfa_failed_attempts=0,mfa_locked_until=NULL
          WHERE id=? AND role<>'superuser'`,
         [hash, targetId]
       );

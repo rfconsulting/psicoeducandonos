@@ -37,8 +37,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run check
-      - run: npm test
       - run: npm run db:verify
+      - run: npm test
       - run: npm run build:hostinger
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run check:secrets

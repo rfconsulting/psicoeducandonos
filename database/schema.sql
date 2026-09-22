@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   email_verified_at DATETIME NULL,
   mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   mfa_secret_encrypted TEXT NULL,
+  mfa_failed_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  mfa_locked_until DATETIME NULL,
   failed_login_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
   locked_until DATETIME NULL,
   last_login_at DATETIME NULL,

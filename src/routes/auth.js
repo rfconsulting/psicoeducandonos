@@ -13,11 +13,6 @@ const securityAlert = require('../services/security-alert');
 const { waitForEquivalentAuthResponse } = require('../services/public-auth-response');
 const { ROLES } = require('../constants/access');
 const {
-  resetMfaAttempts,
-  mfaChallengeAvailable,
-  recordMfaFailure
-} = require('../services/mfa-attempts');
-const {
   PASSWORD_RESET_EXPIRES_MINUTES,
   generateResetToken,
   hashResetToken,
@@ -148,36 +143,39 @@ router.post('/login', verifyCsrf, async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
     const password = String(req.body.password || '');
-    const [rows] = await pool.execute(
-      'SELECT id, full_name, email, password_hash, role, status, auth_version, must_change_password, email_verified_at, mfa_enabled, failed_login_attempts, locked_until FROM users WHERE email = ? LIMIT 1',
-      [email]
-    );
-    const user = rows[0];
-    const passwordMatches = await bcrypt.compare(password, user?.password_hash || DUMMY_HASH);
-    const locked = user?.locked_until && new Date(user.locked_until) > new Date();
-
-    if (!user || !passwordMatches || user.status !== 'active' || locked) {
-      if (user && !locked) {
-        await pool.execute(
+    const outcome = await withTransaction(async connection => {
+      const [rows] = await connection.execute(
+        'SELECT id, full_name, email, password_hash, role, status, auth_version, must_change_password, email_verified_at, mfa_enabled, failed_login_attempts, locked_until FROM users WHERE email = ? LIMIT 1 FOR UPDATE',
+        [email]
+      );
+      const user = rows[0];
+      const passwordMatches = await bcrypt.compare(password, user?.password_hash || DUMMY_HASH);
+      const locked = user?.locked_until && new Date(user.locked_until) > new Date();
+      if (!user || !passwordMatches || user.status !== 'active' || locked) {
+        if (user && !locked) await connection.execute(
           `UPDATE users SET
            locked_until = IF(failed_login_attempts + 1 >= 5, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE), NULL),
            failed_login_attempts = IF(failed_login_attempts + 1 >= 5, 0, failed_login_attempts + 1)
            WHERE id = ?`,
           [user.id]
         );
+        await audit(req, 'login_failed', 'user', user?.id || null, null, { db: connection, required: true });
+        return { status: 'invalid' };
       }
-      await audit(req, 'login_failed', 'user', user?.id || null);
-      return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
-    }
-    if (!user.email_verified_at) return res.status(403).json({ error: 'Debes verificar tu correo antes de ingresar.', code: 'EMAIL_VERIFICATION_REQUIRED' });
+      if (!user.email_verified_at) return { status: 'unverified' };
+      await connection.execute('UPDATE users SET failed_login_attempts=0,locked_until=NULL,last_login_at=UTC_TIMESTAMP() WHERE id=?', [user.id]);
+      await audit(req, 'login_succeeded', 'user', user.id, null, { db: connection, required: true });
+      return { status: 'authenticated', user };
+    });
+    if (outcome.status === 'invalid') return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+    if (outcome.status === 'unverified') return res.status(403).json({ error: 'Debes verificar tu correo antes de ingresar.', code: 'EMAIL_VERIFICATION_REQUIRED' });
 
+    const user = outcome.user;
     await new Promise((resolve, reject) => req.session.regenerate((error) => error ? reject(error) : resolve()));
     req.session.user = { id: user.id, fullName: user.full_name, email: user.email, role: user.role, authVersion: user.auth_version };
     const privileged = [ROLES.SUPERUSER, ROLES.ADMINISTRATOR].includes(user.role);
     req.session.mfaVerified = !privileged;
     req.session.csrfToken = require('../config/env').randomToken();
-    await pool.execute('UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login_at = UTC_TIMESTAMP() WHERE id = ?', [user.id]);
-    await audit(req, 'login_succeeded', 'user', user.id);
     const redirect = user.must_change_password ? '/cambiar-password.html' : (privileged ? '/mfa.html' : (user.role === 'student' ? '/estudiante.html' : '/dashboard.html'));
     res.json({ message: 'Sesión iniciada.', user: req.session.user, redirect });
   } catch (error) { next(error); }
@@ -223,23 +221,36 @@ router.post('/mfa/setup', requireAuth, verifyCsrf, async (req, res, next) => {
 router.post('/mfa/verify', requireAuth, verifyCsrf, async (req, res, next) => {
   try {
     const genericError = 'No fue posible completar la verificación. Inicia sesión nuevamente e inténtalo más tarde.';
-    if (!mfaChallengeAvailable(req.session, req.authUser.id)) {
-      return res.status(429).json({ error: genericError });
-    }
-    const [rows] = await pool.execute('SELECT mfa_secret_encrypted FROM users WHERE id=? LIMIT 1', [req.authUser.id]);
-    if (!rows[0]?.mfa_secret_encrypted || !mfa.verify(mfa.decrypt(rows[0].mfa_secret_encrypted), req.body.code)) {
-      const attempt = recordMfaFailure(req.session, req.authUser.id);
-      await securityAlert('mfa_failed', { userId: req.authUser.id, requestId: req.requestId });
-      if (attempt.limited) {
-        await audit(req, 'mfa_challenge_limited', 'user', req.authUser.id);
-        return res.status(429).json({ error: genericError });
+    const outcome = await withTransaction(async connection => {
+      const [[user]] = await connection.execute(
+        'SELECT mfa_secret_encrypted,mfa_failed_attempts,mfa_locked_until FROM users WHERE id=? LIMIT 1 FOR UPDATE',
+        [req.authUser.id]
+      );
+      if (user?.mfa_locked_until && new Date(user.mfa_locked_until) > new Date()) return 'limited';
+      const valid = user?.mfa_secret_encrypted && mfa.verify(mfa.decrypt(user.mfa_secret_encrypted), req.body.code);
+      if (!valid) {
+        await connection.execute(
+          `UPDATE users SET
+           mfa_locked_until=IF(mfa_failed_attempts + 1 >= 5,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 10 MINUTE),NULL),
+           mfa_failed_attempts=IF(mfa_failed_attempts + 1 >= 5,0,mfa_failed_attempts + 1)
+           WHERE id=?`, [req.authUser.id]
+        );
+        const [[state]] = await connection.execute('SELECT mfa_locked_until FROM users WHERE id=?', [req.authUser.id]);
+        if (state.mfa_locked_until) {
+          await audit(req, 'mfa_challenge_limited', 'user', req.authUser.id, null, { db: connection, required: true });
+        }
+        return state.mfa_locked_until ? 'limited' : 'invalid';
       }
+      await connection.execute('UPDATE users SET mfa_enabled=TRUE,mfa_failed_attempts=0,mfa_locked_until=NULL WHERE id=?', [req.authUser.id]);
+      await audit(req, 'mfa_verified', 'user', req.authUser.id, null, { db: connection, required: true });
+      return 'verified';
+    });
+    if (outcome !== 'verified') {
+      await securityAlert('mfa_failed', { userId: req.authUser.id, requestId: req.requestId });
+      if (outcome === 'limited') return res.status(429).json({ error: genericError });
       return res.status(401).json({ error: 'Código de verificación incorrecto.' });
     }
-    resetMfaAttempts(req.session);
-    await pool.execute('UPDATE users SET mfa_enabled=TRUE WHERE id=?', [req.authUser.id]);
     req.session.mfaVerified = true;
-    await audit(req, 'mfa_verified', 'user', req.authUser.id);
     await securityAlert('privileged_login', { userId: req.authUser.id, role: req.authUser.role, requestId: req.requestId });
     return res.json({ message: 'Verificación completada.', redirect: '/dashboard.html' });
   } catch (error) { return next(error); }
@@ -303,7 +314,7 @@ router.post('/reset-password', verifyCsrf, async (req, res, next) => {
       return res.status(400).json({ error: 'El enlace es inválido o ha expirado.' });
     }
     const hash = await bcrypt.hash(newPassword, 12);
-    await connection.execute('UPDATE users SET password_hash=?,must_change_password=FALSE,password_changed_at=UTC_TIMESTAMP(),auth_version=auth_version+1 WHERE id=?', [hash, tokens[0].user_id]);
+    await connection.execute('UPDATE users SET password_hash=?,must_change_password=FALSE,password_changed_at=UTC_TIMESTAMP(),auth_version=auth_version+1,failed_login_attempts=0,locked_until=NULL,mfa_failed_attempts=0,mfa_locked_until=NULL WHERE id=?', [hash, tokens[0].user_id]);
     await connection.execute('UPDATE password_reset_tokens SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL', [tokens[0].user_id]);
     await audit(req, 'password_reset_completed', 'user', tokens[0].user_id, null, { db: connection, required: true });
     await connection.commit();

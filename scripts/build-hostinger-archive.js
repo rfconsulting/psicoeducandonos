@@ -80,7 +80,7 @@ function productionPackage(sourcePackage) {
     'start', 'db:init', 'db:migrate', 'migrate:p0', 'migrate:p1', 'migrate:p2', 'migrate:p3',
     'migrate:p4', 'migrate:p5', 'migrate:p6', 'migrate:p7', 'migrate:p8', 'migrate:p9', 'migrate:p10',
     'migrate:p11', 'migrate:p12', 'migrate:p13', 'migrate:p14', 'migrate:p15', 'migrate:p16', 'migrate:p17',
-    'migrate:p18', 'migrate:p19', 'migrate:p20', 'migrate:p21', 'migrate:p22', 'migrate:p23',
+    'migrate:p18', 'migrate:p19', 'migrate:p20', 'migrate:p21', 'migrate:p22', 'migrate:p23', 'migrate:p24',
     'retention:dry', 'retention:run'
   ];
   return {
