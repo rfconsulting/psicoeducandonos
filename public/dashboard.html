@@ -26,6 +26,7 @@
       <p class="sidebar-label">Panel de control</p>
       <nav class="dashboard-nav">
         <button class="nav-item active" type="button" data-panel-target="overview-panel">Inicio</button>
+        <button class="nav-item" type="button" data-panel-target="reports-panel" id="reports-nav" hidden>Reportes y estadísticas</button>
         <button class="nav-item" type="button" data-panel-target="blog-section" id="blog-nav">Blog</button>
         <button class="nav-item" type="button" data-panel-target="courses-section" id="courses-nav">Formación</button>
         <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
@@ -60,6 +61,24 @@
         </div>
         <p class="form-message" id="statistics-message" role="alert"></p>
       </section>
+    </section>
+
+    <section class="dashboard-panel reports-panel" id="reports-panel" hidden>
+      <div class="content-heading"><div><span>Análisis de inscripciones</span><h1>Reportes y estadísticas</h1></div><p>Datos de quienes se inscribieron al programa.</p></div>
+      <p class="report-scope" id="report-scope">Cargando datos…</p>
+      <div class="report-kpis" id="report-kpis"></div>
+      <section class="report-card report-insights"><h2>Lecturas rápidas</h2><div id="report-insights"></div></section>
+      <div class="report-grid">
+        <section class="report-card"><h2>Edad</h2><div id="report-ages"></div></section>
+        <section class="report-card"><h2>Ruta formativa</h2><div id="report-pathways"></div></section>
+        <section class="report-card"><h2>Cómo conocieron el programa</h2><div id="report-sources"></div></section>
+        <section class="report-card"><h2>Asistencia a la sesión informativa</h2><div id="report-attendance"></div></section>
+        <section class="report-card"><h2>Experiencia previa en crisis</h2><div id="report-experience"></div></section>
+        <section class="report-card"><h2>Participación y retroalimentación</h2><div id="report-feedback"></div></section>
+      </div>
+      <section class="report-card report-trend"><h2>Inscripciones por día</h2><div id="report-daily"></div></section>
+      <p class="report-footnote">Las cifras describen solicitudes recibidas. Los correos distintos se calculan sin distinguir mayúsculas ni espacios al inicio o final; no equivalen necesariamente a personas únicas. Los comentarios no son una medida formal de satisfacción. No se muestran datos personales.</p>
+      <p class="form-message" id="reports-message" role="alert"></p>
     </section>
 
     <section class="content-section dashboard-panel" id="blog-section" hidden>

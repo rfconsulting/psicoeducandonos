@@ -96,6 +96,40 @@ function resetCourseEditor(){
   const form=document.querySelector('#course-form');editingCourseId=null;form.reset();form.elements.enrollmentPolicy.value='admin_only';document.querySelector('#course-form-title').textContent='Nuevo curso';document.querySelector('#course-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Guardar curso';
 }
 
+const reportLabels={
+  '18-25':'18–25 años','26-40':'26–40 años','41-60':'41–60 años','61-plus':'61 años o más',
+  accompaniment:'Acompañamiento','health-professional':'Profesional de la salud',
+  acquaintance:'Referencia de un conocido',whatsapp:'WhatsApp',other:'Otros medios',instagram:'Instagram',facebook:'Facebook'
+};
+function reportPercent(count,total){return total?`${(100*Number(count)/Number(total)).toFixed(1).replace('.',',')} %`:'0,0 %';}
+function reportRows(selector,rows,total){const container=document.querySelector(selector);container.textContent='';rows.forEach(row=>{const count=Number(row.count)||0;const item=document.createElement('div');item.className='report-row';const line=document.createElement('div');line.className='report-row-line';const label=document.createElement('span');label.textContent=reportLabels[row.category]||row.category;const value=document.createElement('strong');value.textContent=`${count} · ${reportPercent(count,total)}`;line.append(label,value);const track=document.createElement('div');track.className='report-bar';const fill=document.createElement('span');fill.style.width=`${total?Math.min(100,100*count/total):0}%`;track.appendChild(fill);item.append(line,track);container.appendChild(item);});}
+function reportKpi(container,label,value,note){const card=document.createElement('article');card.className='report-kpi';const heading=document.createElement('span');heading.textContent=label;const count=document.createElement('strong');count.textContent=value;const detail=document.createElement('small');detail.textContent=note;card.append(heading,count,detail);container.appendChild(card);}
+async function loadReports(){
+  const message=document.querySelector('#reports-message');const kpis=document.querySelector('#report-kpis');message.textContent='';kpis.textContent='';
+  try{
+    const data=await request('/api/dashboard/reports');const totals=data.totals;const total=Number(totals.registrations)||0;const attended=Number(totals.attended)||0;
+    const first=totals.firstDate?new Date(totals.firstDate):null;const last=totals.lastDate?new Date(totals.lastDate):null;
+    const dates=first&&last?` · ${new Intl.DateTimeFormat('es',{dateStyle:'medium',timeZone:'UTC'}).format(first)} – ${new Intl.DateTimeFormat('es',{dateStyle:'medium',timeZone:'UTC'}).format(last)}`:'';
+    document.querySelector('#report-scope').textContent=`${data.scope}${dates}`;
+    reportKpi(kpis,'Inscripciones registradas',String(total),'Dato administrativo');
+    reportKpi(kpis,'Correos únicos',String(Number(totals.distinctEmails)||0),`${Number(totals.repeatedEmails)||0} registros con correo repetido; verificar personas únicas`);
+    reportKpi(kpis,'Aprobadas',String(Number(totals.approved)||0),reportPercent(totals.approved,total));
+    reportKpi(kpis,'Rechazadas',String(Number(totals.rejected)||0),reportPercent(totals.rejected,total));
+    reportKpi(kpis,'Con experiencia en crisis',String(Number(totals.crisisExperience)||0),reportPercent(totals.crisisExperience,total));
+    reportKpi(kpis,'Interés en recibir información',String(Number(totals.informationInterest)||0),reportPercent(totals.informationInterest,total));
+    reportKpi(kpis,'Asistencia confirmada',String(attended),reportPercent(attended,total));
+    const countOf=(rows,key)=>Number(rows.find(row=>row.category===key)?.count)||0;const insights=document.querySelector('#report-insights');insights.textContent='';
+    [`${reportPercent(countOf(data.ages,'41-60')+countOf(data.ages,'61-plus'),total)} de las inscripciones corresponde a personas mayores de 40 años.`,
+      `${reportPercent(countOf(data.pathways,'accompaniment'),total)} eligió la ruta de acompañamiento.`,
+      `${reportPercent(countOf(data.sources,'acquaintance')+countOf(data.sources,'whatsapp'),total)} llegó por referencia personal o WhatsApp.`].forEach(copy=>{const item=document.createElement('p');item.textContent=copy;insights.appendChild(item);});
+    reportRows('#report-ages',data.ages,total);reportRows('#report-pathways',data.pathways,total);reportRows('#report-sources',data.sources,total);
+    reportRows('#report-attendance',[{category:'Asistieron',count:totals.attended},{category:'No asistieron',count:totals.notAttended},{category:'Sin información',count:totals.attendanceUnknown}],total);
+    const experience=document.querySelector('#report-experience');experience.textContent='';data.experience.forEach(row=>{const text=document.createElement('p');text.textContent=`${reportLabels[row.category]||row.category}: ${Number(row.experienced)||0} de ${Number(row.total)||0} (${reportPercent(row.experienced,row.total)})`;experience.appendChild(text);});
+    const feedback=document.querySelector('#report-feedback');feedback.textContent='';const feedbackCount=Number(totals.attendeeFeedback)||0;const feedbackText=document.createElement('p');feedbackText.textContent=`${feedbackCount} de ${attended} asistentes registrados dejaron comentarios (${reportPercent(feedbackCount,attended)}).`;const feedbackNote=document.createElement('p');feedbackNote.className='report-muted';feedbackNote.textContent='Este dato mide participación voluntaria, no satisfacción.';feedback.append(feedbackText,feedbackNote);
+    const daily=document.querySelector('#report-daily');daily.textContent='';const peak=Math.max(1,...data.daily.map(row=>Number(row.count)||0));data.daily.forEach(row=>{const item=document.createElement('div');item.className='report-daily-row';const label=document.createElement('span');label.textContent=row.day;const bar=document.createElement('div');bar.className='report-bar';const fill=document.createElement('span');fill.style.width=`${100*Number(row.count)/peak}%`;bar.appendChild(fill);const count=document.createElement('strong');count.textContent=row.count;item.append(label,bar,count);daily.appendChild(item);});
+  }catch(error){message.className='form-message error';message.textContent=error.message;}
+}
+
 function resetArticleEditor(){const form=document.querySelector('#article-form');editingArticleId=null;form.reset();document.querySelector('#article-form-title').textContent='Nuevo artículo';document.querySelector('#article-edit-cancel').hidden=true;form.querySelector('button[type="submit"]').textContent='Guardar artículo';}
 async function startArticleEdit(article){const {article:detail}=await request(`/api/content/articles/${encodeURIComponent(article.slug)}`);const form=document.querySelector('#article-form');editingArticleId=detail.id;form.elements.title.value=detail.title;form.elements.summary.value=detail.summary;form.elements.body.value=detail.body||'';form.elements.pdfUrl.value=detail.pdfUrl||'';form.elements.publish.checked=detail.status==='published';document.querySelector('#article-form-title').textContent='Editar artículo';document.querySelector('#article-edit-cancel').hidden=false;form.querySelector('button[type="submit"]').textContent='Actualizar artículo';form.scrollIntoView({behavior:'smooth',block:'start'});}
 function setupArticleEditor(){const form=document.querySelector('#article-form');document.querySelector('#article-edit-cancel').addEventListener('click',resetArticleEditor);form.addEventListener('submit',async event=>{event.preventDefault();const message=form.querySelector('.form-message');const button=form.querySelector('button[type="submit"]');const values=Object.fromEntries(new FormData(form));values.status=values.publish?'published':'draft';delete values.publish;button.disabled=true;message.className='form-message';try{const data=await request(editingArticleId?`/api/content/articles/${editingArticleId}`:'/api/content/articles',{method:editingArticleId?'PATCH':'POST',body:JSON.stringify(values)});resetArticleEditor();message.className='form-message success';message.textContent=data.message;await loadContent();}catch(error){message.className='form-message error';message.textContent=error.message;}finally{button.disabled=false;}});}
@@ -338,7 +372,7 @@ async function init(){
     if(courseRoles.includes(currentUser.role))document.querySelector('#course-form').hidden=false;
     else document.querySelector('#courses-nav').hidden=true;
     if(trackingRoles.includes(currentUser.role)){document.querySelector('#tracking-nav').hidden=false;await loadTracking();}
-    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#professionals-nav').hidden=false;document.querySelector('#profile-reviews-nav').hidden=false;setupUserCreation();setupProfessionalManagement();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadProfessionals(),loadProfileReviews(true),loadDashboardStatistics()]);}
+    if(['superuser','administrator'].includes(currentUser.role)){document.querySelector('#users-nav').hidden=false;document.querySelector('#professionals-nav').hidden=false;document.querySelector('#profile-reviews-nav').hidden=false;document.querySelector('#reports-nav').hidden=false;setupUserCreation();setupProfessionalManagement();if(currentUser.role==='superuser')setupPasswordReset();await Promise.all([loadUsers(),loadProfessionals(),loadProfileReviews(true),loadDashboardStatistics(),loadReports()]);}
     if(currentUser.role==='superuser'){document.querySelector('#audit-nav').hidden=false;await loadAudit(true);}
     await loadContent();
     if(courseRoles.includes(currentUser.role)){buildLessonQuestions();bindCourseBuilder();}
