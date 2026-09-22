@@ -23,6 +23,12 @@ const PRODUCTION_SCRIPTS = new Set([
   'migrate-p15.js',
   'migrate-p16.js',
   'migrate-p17.js',
+  'migrate-p18.js',
+  'migrate-p19.js',
+  'migrate-p20.js',
+  'migrate-p21.js',
+  'migrate-p22.js',
+  'migrate-p23.js',
   'retention.js'
 ]);
 const SECRET_ENV_KEYS = [
@@ -74,6 +80,7 @@ function productionPackage(sourcePackage) {
     'start', 'db:init', 'migrate:p0', 'migrate:p1', 'migrate:p2', 'migrate:p3',
     'migrate:p4', 'migrate:p5', 'migrate:p6', 'migrate:p7', 'migrate:p8', 'migrate:p9', 'migrate:p10',
     'migrate:p11', 'migrate:p12', 'migrate:p13', 'migrate:p14', 'migrate:p15', 'migrate:p16', 'migrate:p17',
+    'migrate:p18', 'migrate:p19', 'migrate:p20', 'migrate:p21', 'migrate:p22', 'migrate:p23',
     'retention:dry', 'retention:run'
   ];
   return {

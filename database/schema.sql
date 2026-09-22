@@ -180,7 +180,8 @@ CREATE TABLE IF NOT EXISTS lesson_question_options (
 
 CREATE TABLE IF NOT EXISTS professional_profiles (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, user_id BIGINT UNSIGNED NOT NULL,
-  professional_type ENUM('psychologist','psychiatrist','counselor') NOT NULL, license_number VARCHAR(80) NULL, specialties VARCHAR(500) NULL, bio TEXT NULL,
+  professional_type ENUM('psychologist','psychiatrist','psychopedagogue','counselor') NOT NULL, license_number VARCHAR(80) NULL, specialties VARCHAR(500) NULL, bio TEXT NULL,
+  photo_mime VARCHAR(20) NULL, photo_data MEDIUMBLOB NULL,
   timezone VARCHAR(64) NOT NULL, status ENUM('draft','active','suspended') NOT NULL DEFAULT 'draft',
   credential_status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending', verification_notes VARCHAR(2000) NULL,
   verified_by BIGINT UNSIGNED NULL, verified_at DATETIME NULL,
@@ -192,7 +193,7 @@ CREATE TABLE IF NOT EXISTS professional_profiles (
 
 CREATE TABLE IF NOT EXISTS professional_services (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, professional_id BIGINT UNSIGNED NOT NULL,
-  service_type ENUM('psychology','psychiatry','counseling') NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
+  service_type ENUM('psychology','psychiatry','psychopedagogy','counseling') NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
   duration_minutes SMALLINT UNSIGNED NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), KEY idx_services_professional (professional_id,active),

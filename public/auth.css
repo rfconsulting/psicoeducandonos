@@ -962,10 +962,11 @@ select,
 .article-document iframe{display:block;width:100%;height:min(82vh,1000px);min-height:480px;border:0;border-top:1px solid var(--line);background:#f5f6f4}
 .article-document>p{margin:0;padding:13px 26px;color:var(--muted);font-size:12px}
 .blog-card{display:flex;flex-direction:column;align-items:flex-start;min-height:245px}
-.blog-card h3{max-width:100%;font-size:clamp(20px,1.8vw,25px);line-height:1.22;overflow-wrap:break-word;hyphens:none}
-.blog-card p{line-height:1.55}
-.blog-card .content-link{margin-top:auto;padding-top:14px}
+.blog-card h3{max-width:100%;font-size:clamp(18px,1.5vw,22px);line-height:1.25;overflow-wrap:break-word;hyphens:none}
+.blog-card p{line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
+.blog-card .content-link{margin-top:10px;padding-top:0}
 .blog-card .blog-download{margin-top:0;color:var(--deep)}
+.article-catalog .blog-card{padding:18px;min-height:0}
 @media(max-width:600px){.article-document-heading{align-items:stretch;flex-direction:column;padding:18px}.article-document iframe{min-height:440px;height:75vh}.article-document>p{padding:12px 18px}}
 
 .article-reader>span {
@@ -2501,6 +2502,7 @@ select,
     opacity: .55;
     padding: 0
 }
+.course-pay-button{display:block;width:100%;margin-top:16px;text-align:center}
 
 .mfa-secret {
     padding: 18px;
@@ -3350,3 +3352,51 @@ body :is(h1, h2, h3, h4, .article-summary) {
 .course-toolbar input,.course-toolbar select{width:100%;min-height:40px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:var(--deep)}
 .course-toolbar .small-button{min-height:40px}
 @media(max-width:600px){.course-toolbar .field{flex-basis:100%}.course-toolbar .small-button{width:100%}}
+.course-topic-list{display:grid;border:1px solid var(--line);border-radius:0 0 14px 14px;background:var(--surface);overflow:hidden}
+.course-topic-list>.empty-state{padding:20px}
+.course-topic-row{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.course-topic-row:last-child{border-bottom:0}
+.course-topic-info{min-width:0}
+.course-topic-info h4{margin:0;font-family:Newsreader,serif;font-size:20px;line-height:1.2;overflow-wrap:normal;word-break:normal;hyphens:none}
+.course-topic-info p{margin:5px 0 0;color:var(--muted);font-size:11px}
+.course-topic-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start}
+.course-topic-actions .small-button{font-size:11px;padding:8px 10px}
+.course-topic-outline{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.course-topic-outline summary{cursor:pointer;color:var(--deep);font-weight:700}
+.course-topic-outline ol{margin:10px 0 0;padding-left:22px}
+.course-topic-outline li{padding:3px 0}
+@media(max-width:700px){.course-topic-row{grid-template-columns:1fr}.course-topic-actions{justify-content:flex-start}}
+.professional-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(180px,1fr);gap:12px;padding:18px;margin-bottom:22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.professional-filters .field{display:grid;gap:7px;margin:0;font-size:12px;font-weight:700;color:var(--deep)}
+.professional-filters input,.professional-filters select{min-height:43px;width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--deep);font:inherit}
+.professional-directory{display:grid;gap:16px}
+.professional-directory-card{min-width:0;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.professional-directory-header{display:flex;align-items:center;gap:16px}
+.professional-avatar{display:grid;place-items:center;flex:none;width:60px;height:60px;border-radius:50%;background:#e5efe7;color:var(--deep);font-family:Newsreader,serif;font-size:28px;font-weight:700}
+.professional-avatar:is(img){display:block;object-fit:cover;border:2px solid #e5efe7}
+.application-person>.professional-avatar{float:left;margin:0 15px 10px 0}
+.professional-photo-form{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0 18px}
+.professional-photo-form input{max-width:260px;font-size:12px}
+.professional-photo-form .form-message{flex-basis:100%;margin:0}
+.professional-service-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.professional-service-row span{flex:1 1 220px}
+.professional-service-row .form-message{flex-basis:100%;margin:0}
+.professional-directory-header h3{margin:0;font-family:Newsreader,serif;font-size:27px;line-height:1.15}
+.professional-directory-header p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.professional-bio{margin:20px 0 14px;color:var(--muted);font-size:14px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
+.professional-specialties{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0}
+.professional-specialties span{padding:6px 9px;border-radius:999px;background:#f2f6f3;color:var(--deep);font-size:11px}
+.professional-offer{margin:16px 0;color:var(--deep);font-size:13px;font-weight:700}
+.professional-details{border-top:1px solid var(--line);padding-top:15px}
+.professional-details>summary{cursor:pointer;color:var(--deep);font-size:13px;font-weight:700}
+.professional-full-bio{white-space:pre-line;color:var(--muted);font-size:13px;line-height:1.6}
+.professional-service{padding:18px 0;border-top:1px solid var(--line)}
+.professional-service-heading{display:flex;justify-content:space-between;gap:12px;align-items:start}
+.professional-service-heading h4{margin:0;font-family:Newsreader,serif;font-size:21px}
+.professional-service-heading span{font-size:12px;font-weight:700;color:var(--deep)}
+.professional-service>p{color:var(--muted);font-size:13px;line-height:1.5}
+.professional-booking-controls,.professional-slots{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.professional-booking-controls input{min-height:38px;padding:7px 9px;border:1px solid var(--line);border-radius:8px}
+.professional-slots{margin-top:12px;font-size:13px}
+.professional-slots p{width:100%;margin:3px 0}
+@media(max-width:650px){.professional-filters{grid-template-columns:1fr}.professional-directory-card{padding:18px}.professional-service-heading{flex-direction:column}}

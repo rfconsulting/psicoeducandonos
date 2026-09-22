@@ -10,6 +10,7 @@ const { normalizeCoursePayload, courseForManagement } = require('../services/cou
 const { catalogAvailability } = require('../services/course-enrollment');
 const env = require('../config/env');
 const { driveDownloadUrl } = require('../validation/lesson');
+const writeArticlePdf = require('../services/article-pdf');
 
 const router = express.Router();
 function text(value, max) { return String(value || '').trim().slice(0, max); }
@@ -22,11 +23,13 @@ router.get('/articles', requireAuth, async (req, res, next) => {
   try {
     const role = req.session.user.role;
     const paging = pagination(req.query);
+    const search = String(req.query.search || '').trim().slice(0, 120);
     const articles = await contentRepository.listArticles({
       userId: req.session.user.id,
       globalAccess: hasCapability(role, CAPABILITIES.ARTICLE_MANAGE_ALL),
       canAuthor: hasCapability(role, CAPABILITIES.ARTICLE_CREATE),
-      ...paging
+      ...paging,
+      search
     });
     const result = page(articles, paging.limit);
     res.json({ articles: result.items, nextCursor: result.nextCursor });
@@ -49,6 +52,20 @@ router.get('/articles/:slug', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.get('/articles/:slug/pdf', requireAuth, async (req, res, next) => {
+  try {
+    const slug = String(req.params.slug || '').slice(0, 200);
+    const [[article]] = await pool.execute(`SELECT a.id,a.author_id AS authorId,a.title,a.summary,a.body,a.status,u.full_name AS author FROM articles a JOIN users u ON u.id=a.author_id WHERE a.slug=? LIMIT 1`, [slug]);
+    if (!article || (article.status !== 'published' && !hasCapability(req.authUser.role, CAPABILITIES.ARTICLE_MANAGE_ALL) && Number(article.authorId) !== Number(req.authUser.id))) return res.status(404).json({ error: 'Artículo no encontrado.' });
+    const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `${disposition}; filename="articulo-${article.id}.pdf"`);
+    res.set('Cache-Control', 'private, no-store');
+    if (disposition === 'inline') res.set('Content-Security-Policy', "frame-ancestors 'self'");
+    writeArticlePdf(article, res);
+  } catch (error) { return next(error); }
+});
+
 router.post('/articles', requireCapability(CAPABILITIES.ARTICLE_CREATE), verifyCsrf, async (req, res, next) => {
   try {
     const title = text(req.body.title, 180);
@@ -56,7 +73,7 @@ router.post('/articles', requireCapability(CAPABILITIES.ARTICLE_CREATE), verifyC
     const body = text(req.body.body, 50000);
     const pdfUrl = req.body.pdfUrl ? driveDownloadUrl(req.body.pdfUrl) : null;
     const status = req.body.status === 'published' ? 'published' : 'draft';
-    if (title.length < 5 || summary.length < 10 || body.length < 30 || (req.body.pdfUrl && !pdfUrl)) return res.status(422).json({ error: 'Completa el artículo y utiliza un enlace válido de Google Drive para el PDF.' });
+    if (title.length < 5 || summary.length < 10 || (!body && !pdfUrl) || (body && body.length < 30) || (req.body.pdfUrl && !pdfUrl)) return res.status(422).json({ error: 'Indica título, resumen y contenido de al menos 30 caracteres o un PDF válido de Google Drive.' });
     const slug = `${slugify(title)}-${Date.now().toString(36)}`;
     const id = await withTransaction(async connection => {
       const [result] = await connection.execute('INSERT INTO articles (author_id,title,slug,summary,body,pdf_url,status,published_at) VALUES (?,?,?,?,?,?,?,?)', [req.session.user.id, title, slug, summary, body, pdfUrl, status, status === 'published' ? new Date() : null]);
@@ -71,7 +88,7 @@ router.patch('/articles/:id', requireCapability(CAPABILITIES.ARTICLE_CREATE), ve
   try {
     const articleId = Number(req.params.id); const title = text(req.body.title, 180); const summary = text(req.body.summary, 320); const body = text(req.body.body, 50000);
     const status = req.body.status === 'published' ? 'published' : 'draft'; const pdfUrl = req.body.pdfUrl ? driveDownloadUrl(req.body.pdfUrl) : null;
-    if (!Number.isSafeInteger(articleId) || title.length < 5 || summary.length < 10 || body.length < 30 || (req.body.pdfUrl && !pdfUrl)) return res.status(422).json({ error: 'Completa el artículo y utiliza un enlace válido de Google Drive para el PDF.' });
+    if (!Number.isSafeInteger(articleId) || title.length < 5 || summary.length < 10 || (!body && !pdfUrl) || (body && body.length < 30) || (req.body.pdfUrl && !pdfUrl)) return res.status(422).json({ error: 'Indica título, resumen y contenido de al menos 30 caracteres o un PDF válido de Google Drive.' });
     const [[article]] = await pool.execute('SELECT id,author_id AS authorId FROM articles WHERE id=? LIMIT 1', [articleId]);
     const global = hasCapability(req.authUser.role, CAPABILITIES.ARTICLE_MANAGE_ALL);
     if (!article || (!global && Number(article.authorId) !== Number(req.authUser.id))) return res.status(404).json({ error: 'Artículo no encontrado.' });
@@ -174,6 +191,22 @@ router.patch('/courses/:id', requireCapability(CAPABILITIES.COURSE_CREATE), veri
   } catch (error) {
     return next(error);
   }
+});
+
+router.patch('/courses/:id/status', requireCapability(CAPABILITIES.COURSE_CREATE), verifyCsrf, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.id);
+    const status = String(req.body.status || '');
+    if (!Number.isSafeInteger(courseId) || courseId < 1 || !['published', 'draft'].includes(status)) return res.status(422).json({ error: 'Curso o estado inválido.' });
+    const result = await withTransaction(async connection => {
+      const [[course]] = await connection.execute('SELECT id,creator_id AS creatorId FROM courses WHERE id=? LIMIT 1 FOR UPDATE', [courseId]);
+      if (!course || (!hasCapability(req.authUser.role, CAPABILITIES.COURSE_MANAGE_ALL) && Number(course.creatorId) !== Number(req.authUser.id))) return { status: 404, error: 'Curso no encontrado.' };
+      await connection.execute('UPDATE courses SET status=?,published_at=IF(?,COALESCE(published_at,UTC_TIMESTAMP()),NULL) WHERE id=?', [status, status === 'published' ? 1 : 0, courseId]);
+      await audit(req, 'course_status_changed', 'course', courseId, { status }, { db: connection, required: true });
+      return { status: 200, message: status === 'published' ? 'Curso publicado.' : 'Curso inhabilitado para nuevas inscripciones.' };
+    });
+    return res.status(result.status).json(result.error ? { error: result.error } : { message: result.message });
+  } catch (error) { return next(error); }
 });
 
 module.exports = router;

@@ -57,7 +57,8 @@
       </section>
       <section class="content-section dashboard-panel" id="consultations-panel" hidden>
         <div class="content-heading"><div><span>Acompañamiento</span><h2>Agendar consulta</h2></div><p>Elige servicio, fecha y un horario disponible.</p></div>
-        <p class="form-message" id="consultations-message" role="alert"></p><div class="content-list" id="consultations-list"></div>
+        <div class="professional-filters"><label class="field" for="professional-directory-search">Buscar profesional o especialidad<input id="professional-directory-search" type="search" placeholder="Nombre, especialidad o servicio" maxlength="120"></label><label class="field" for="professional-directory-type">Profesión<select id="professional-directory-type"><option value="">Todas</option><option value="psychologist">Psicología</option><option value="psychiatrist">Psiquiatría</option><option value="psychopedagogue">Psicopedagogía</option><option value="counselor">Consejería cristiana</option></select></label></div>
+        <p class="form-message" id="consultations-message" role="alert"></p><div class="professional-directory" id="consultations-list" aria-live="polite"></div>
         <div class="content-heading"><div><span>Seguimiento</span><h3>Mis consultas</h3></div></div><div class="content-list" id="my-consultations-list"></div>
       </section>
     </main>

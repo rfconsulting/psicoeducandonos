@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 
-async function listArticles({ userId, globalAccess, canAuthor, cursor, limit }) {
+async function listArticles({ userId, globalAccess, canAuthor, cursor, limit, search = '' }) {
   const conditions = [];
   const values = [];
   if (!globalAccess) {
@@ -8,6 +8,7 @@ async function listArticles({ userId, globalAccess, canAuthor, cursor, limit }) 
     else conditions.push("a.status='published'");
   }
   if (cursor) { conditions.push('a.id < ?'); values.push(cursor); }
+  if (search) { conditions.push('(a.title LIKE ? OR u.full_name LIKE ?)'); values.push(`%${search}%`, `%${search}%`); }
   values.push(limit);
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [rows] = await pool.execute(

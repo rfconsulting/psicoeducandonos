@@ -19,9 +19,13 @@ async function init(){
     document.querySelector('#article-title').textContent=data.article.title;
     document.querySelector('#article-summary').textContent=data.article.summary;
     document.querySelector('#article-meta').textContent=`Por ${data.article.author}`;
-    const preview=previewUrl(data.article.pdfUrl);
-    if(preview){document.querySelector('.article-reader').classList.add('has-document');document.querySelector('#article-preview').src=preview;document.querySelector('#article-pdf').href=data.article.pdfUrl;document.querySelector('#article-document').hidden=false;}
-    data.article.body.split(/\n{2,}/).forEach(text=>{const paragraph=document.createElement('p');paragraph.textContent=text;document.querySelector('#article-body').appendChild(paragraph);});
+    const generatedPdf=`/api/content/articles/${encodeURIComponent(slug)}/pdf`;
+    const preview=previewUrl(data.article.pdfUrl)||`${generatedPdf}?inline=1`;
+    document.querySelector('.article-reader').classList.add('has-document');
+    document.querySelector('#article-preview').src=preview;
+    document.querySelector('#article-pdf').href=data.article.pdfUrl||generatedPdf;
+    document.querySelector('#article-document').hidden=false;
+    if(data.article.body.trim()&&data.article.body.trim()!==data.article.summary.trim())data.article.body.split(/\n{2,}/).forEach(text=>{const paragraph=document.createElement('p');paragraph.textContent=text;document.querySelector('#article-body').appendChild(paragraph);});
   }catch(cause){error.className='form-message error';error.textContent=cause.message;}
 }
 init();

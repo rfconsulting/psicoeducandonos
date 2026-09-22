@@ -1,7 +1,8 @@
 const WEEKDAYS = ['sun','mon','tue','wed','thu','fri','sat'];
-const PROFESSIONAL_TYPES = Object.freeze(['psychologist', 'psychiatrist', 'counselor']);
-const SERVICE_TYPES = Object.freeze(['psychology', 'psychiatry', 'counseling']);
-const SERVICE_BY_PROFESSIONAL = Object.freeze({ psychologist: 'psychology', psychiatrist: 'psychiatry', counselor: 'counseling' });
+const PROFESSIONAL_TYPES = Object.freeze(['psychologist', 'psychiatrist', 'psychopedagogue', 'counselor']);
+const SERVICE_TYPES = Object.freeze(['psychology', 'psychiatry', 'psychopedagogy', 'counseling']);
+const SERVICE_BY_PROFESSIONAL = Object.freeze({ psychologist: 'psychology', psychiatrist: 'psychiatry', psychopedagogue: 'psychopedagogy', counselor: 'counseling' });
+const CONSULTATION_BUFFER_MINUTES = 10;
 
 function validProfessionalType(value) { return PROFESSIONAL_TYPES.includes(value); }
 function validServiceType(value) { return SERVICE_TYPES.includes(value); }
@@ -18,7 +19,7 @@ function minutes(value) {
   return total >= 0 && total < 1440 ? total : null;
 }
 
-function slotsForDay({ date, weekday, startTime, endTime, durationMinutes, intervalMinutes = durationMinutes }) {
+function slotsForDay({ date, weekday, startTime, endTime, durationMinutes, intervalMinutes = durationMinutes + CONSULTATION_BUFFER_MINUTES }) {
   const parsed = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime()) || WEEKDAYS[parsed.getUTCDay()] !== weekday) return [];
   const start = minutes(startTime); const end = minutes(endTime);
@@ -28,6 +29,11 @@ function slotsForDay({ date, weekday, startTime, endTime, durationMinutes, inter
     slots.push(`${String(Math.floor(cursor / 60)).padStart(2, '0')}:${String(cursor % 60).padStart(2, '0')}`);
   }
   return slots;
+}
+
+function conflictsWithConsultation(start, end, existingStart, existingEnd) {
+  const buffer = CONSULTATION_BUFFER_MINUTES * 60000;
+  return start.getTime() < existingEnd.getTime() + buffer && end.getTime() > existingStart.getTime() - buffer;
 }
 
 function zonedDateTimeToUtc(date, time, timezone) {
@@ -49,4 +55,4 @@ function localDateTime(instant, timezone) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: parts.weekday.toLowerCase().slice(0, 3) };
 }
 
-module.exports = { WEEKDAYS, PROFESSIONAL_TYPES, SERVICE_TYPES, validProfessionalType, validServiceType, professionalCanOffer, validTimezone, minutes, slotsForDay, zonedDateTimeToUtc, localDateTime };
+module.exports = { WEEKDAYS, PROFESSIONAL_TYPES, SERVICE_TYPES, CONSULTATION_BUFFER_MINUTES, validProfessionalType, validServiceType, professionalCanOffer, validTimezone, minutes, slotsForDay, conflictsWithConsultation, zonedDateTimeToUtc, localDateTime };

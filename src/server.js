@@ -51,7 +51,7 @@ app.use(helmet({
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
-      frameSrc: ["'self'", 'https://www.youtube-nocookie.com'],
+      frameSrc: ["'self'", 'https://www.youtube-nocookie.com', 'https://drive.google.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: env.isProduction ? [] : null
