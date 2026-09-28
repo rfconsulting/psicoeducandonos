@@ -78,6 +78,14 @@ test('el profesional tiene una vista privada de consultas pendientes', () => {
   assert.match(html, /Mis consultas pendientes/);
 });
 
+test('la descarga del comprobante conserva una extensión reconocible', () => {
+  const route = read('src/routes/operations.js');
+  assert.match(route, /'image\/jpeg': 'jpg'/);
+  assert.match(route, /'application\/pdf': 'pdf'/);
+  assert.match(route, /`comprobante-\$\{id\}\.\$\{extension\}`/);
+  assert.match(route, /X-Content-Type-Options', 'nosniff'/);
+});
+
 test('el progreso clínico guarda solo estado administrativo y no notas clínicas', () => {
   const migration = read('scripts/migrate-p25.js');
   const table = migration.match(/CREATE TABLE IF NOT EXISTS clinical_record_progress[\s\S]*?ENGINE=InnoDB/)[0];

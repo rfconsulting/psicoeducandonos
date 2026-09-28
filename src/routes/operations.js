@@ -210,9 +210,15 @@ router.get('/appointments/manage', requireCapability(CAPABILITIES.SCHEDULING_MAN
 
 router.get('/payment-receipts/:id/file', requireCapability(CAPABILITIES.SCHEDULING_MANAGE), async (req, res, next) => {
   try {
-    const [[receipt]] = await pool.execute('SELECT original_name AS originalName,mime_type AS mimeType,file_data AS fileData FROM payment_receipts WHERE id=? LIMIT 1', [Number(req.params.id)]);
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(404).end();
+    const [[receipt]] = await pool.execute('SELECT original_name AS originalName,mime_type AS mimeType,file_data AS fileData FROM payment_receipts WHERE id=? LIMIT 1', [id]);
     if (!receipt) return res.status(404).end();
-    res.set('Content-Type', receipt.mimeType); res.set('Content-Disposition', `attachment; filename="comprobante-${Number(req.params.id)}"`); res.set('Cache-Control', 'private, no-store');
+    const extensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+    const extension = extensions[receipt.mimeType];
+    if (!extension) return res.status(415).json({ error: 'Tipo de comprobante no admitido.' });
+    const filename = `comprobante-${id}.${extension}`;
+    res.set('Content-Type', receipt.mimeType); res.set('Content-Disposition', `attachment; filename="${filename}"`); res.set('X-Content-Type-Options', 'nosniff'); res.set('Cache-Control', 'private, no-store');
     return res.end(receipt.fileData);
   } catch (error) { return next(error); }
 });
