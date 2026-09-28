@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate } = require('./templates');
+const { passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate, notificationTemplate } = require('./templates');
 
 class EmailService {
   constructor({ provider, from, appPublicUrl }) {
@@ -56,6 +56,18 @@ class EmailService {
     const message = securityAlertTemplate({ type: String(type).slice(0, 80), fields, occurredAt });
     const idempotencyKey = `security-alert/${crypto.randomUUID()}`;
     await this.provider.send({ from: this.from, to, ...message, idempotencyKey });
+    return true;
+  }
+
+  async sendNotification({ to, title, message, actionUrl = null, idempotencyKey }) {
+    let safeActionUrl = null;
+    if (actionUrl) {
+      const url = new URL(actionUrl, this.appPublicUrl);
+      if (url.origin !== this.appPublicUrl.origin) throw new TypeError('La notificación contiene un enlace externo no permitido.');
+      safeActionUrl = url.toString();
+    }
+    const content = notificationTemplate({ title, message, actionUrl: safeActionUrl });
+    await this.provider.send({ from: this.from, to, ...content, idempotencyKey: idempotencyKey || `notification/${crypto.randomUUID()}` });
     return true;
   }
 }

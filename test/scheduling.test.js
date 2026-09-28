@@ -6,12 +6,12 @@ const { PROFESSIONAL_TYPES, SERVICE_TYPES, CONSULTATION_BUFFER_MINUTES, validPro
 
 test('clasifica psicología, psiquiatría y consejería como tipos profesionales separados del rol', () => {
   assert.deepEqual(PROFESSIONAL_TYPES, ['psychologist', 'psychiatrist', 'psychopedagogue', 'counselor']);
-  assert.deepEqual(SERVICE_TYPES, ['psychology', 'psychiatry', 'psychopedagogy', 'counseling']);
+  assert.deepEqual(SERVICE_TYPES, ['psychological_consultation','psychiatric_consultation','psychoeducational_guidance','pastoral_counseling','couples_family_therapy','workshop_course','professional_supervision','other']);
   assert.equal(validProfessionalType('psychiatrist'), true);
-  assert.equal(validServiceType('psychiatry'), true);
-  assert.equal(professionalCanOffer('psychiatrist', 'psychiatry'), true);
-  assert.equal(professionalCanOffer('psychiatrist', 'psychology'), false);
-  assert.equal(professionalCanOffer('psychopedagogue', 'psychopedagogy'), true);
+  assert.equal(validServiceType('psychiatric_consultation'), true);
+  assert.equal(professionalCanOffer('psychiatrist', 'psychiatric_consultation'), true);
+  assert.equal(professionalCanOffer('psychiatrist', 'psychological_consultation'), false);
+  assert.equal(professionalCanOffer('psychopedagogue', 'psychoeducational_guidance'), true);
 });
 
 test('el directorio público y la selección de profesional usan perfiles habilitados', () => {

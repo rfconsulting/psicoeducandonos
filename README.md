@@ -6,6 +6,7 @@ Landing y plataforma educativa construida con HTML, CSS, JavaScript, Node.js/Exp
 
 - [Proceso de desarrollo](docs/PROCESO_DE_DESARROLLO.md)
 - [Arquitectura técnica](docs/ARQUITECTURA.md)
+- [Operaciones, pagos, consultas y suscripciones](docs/OPERACIONES-PAGOS-CONSULTAS.md)
 
 ## Requisitos
 
@@ -136,6 +137,15 @@ Panel estudiantil:
 - **Cursos disponibles:** catálogo publicado, excluyendo los cursos donde el estudiante ya está inscrito.
 - **Mi curso:** inscripciones activas o completadas, acceso al contenido y porcentaje de lecciones completadas.
 - **Blog:** artículos publicados por la comunidad.
+- **Consultas:** solicitud de servicio, reserva y seguimiento administrativo.
+- **Pagos:** checkout por proveedor o transferencia con carga de comprobante.
+- **Notificaciones:** pagos, consultas pendientes y cambios de progreso.
+- **Suscripciones:** planes disponibles y estado de las suscripciones propias.
+
+El panel administrativo incorpora el checklist de tipos de servicio habilitados
+por profesional, revisión de comprobantes y actualización del progreso
+administrativo de las consultas. Consulta la [guía operativa](docs/OPERACIONES-PAGOS-CONSULTAS.md)
+para conocer endpoints, permisos y flujos completos.
 
 En pantallas pequeñas, el menú lateral se convierte en una navegación horizontal desplazable.
 
@@ -222,6 +232,26 @@ genéricas incluso cuando Resend falla.
 npm test
 npm audit --omit=dev
 ```
+
+Para comprobar además que el esquema y todas las migraciones hasta P25 son
+idempotentes:
+
+```powershell
+npm run db:verify
+```
+
+## Tareas programadas
+
+En producción programa estos comandos fuera del proceso HTTP:
+
+```powershell
+npm run scheduling:expire-holds
+npm run notifications:pending-consultations
+```
+
+El primero libera reservas vencidas. El segundo genera una notificación
+interna y un correo para solicitudes pendientes por más de 24 horas, con
+deduplicación diaria.
 
 ## Modelo académico
 

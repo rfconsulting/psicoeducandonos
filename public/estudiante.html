@@ -22,6 +22,8 @@
         <button class="nav-item" type="button" data-panel-target="available-panel">Cursos disponibles</button>
         <button class="nav-item" type="button" data-panel-target="my-courses-panel">Mi curso</button>
         <button class="nav-item" type="button" data-panel-target="consultations-panel" id="consultations-nav">Consultas</button>
+        <button class="nav-item" type="button" data-panel-target="payments-panel" id="payments-nav">Pagos</button>
+        <button class="nav-item" type="button" data-panel-target="notifications-panel" id="notifications-nav">Notificaciones</button>
         <button class="nav-item" type="button" data-panel-target="student-blog-panel">Blog</button>
       </nav>
     </aside>
@@ -57,9 +59,22 @@
       </section>
       <section class="content-section dashboard-panel" id="consultations-panel" hidden>
         <div class="content-heading"><div><span>Acompañamiento</span><h2>Agendar consulta</h2></div><p>Elige servicio, fecha y un horario disponible.</p></div>
+        <form class="editor-form" id="service-request-form"><h3>Solicitar orientación</h3><p>Indica el tipo de atención que buscas. Esta solicitud no sustituye servicios de emergencia.</p><div class="form-grid"><div class="field"><label>Tipo de consulta o servicio<select name="serviceType" id="service-request-type" required></select></label></div><div class="field"><label>Modalidad<select name="deliveryMode"><option value="online">En línea</option><option value="in_person">Presencial</option></select></label></div><div class="field"><label>Formato<select name="participantFormat"><option value="individual">Individual</option><option value="couple">Pareja</option><option value="family">Familiar</option><option value="group">Grupal</option></select></label></div><div class="field"><label>Motivo principal<select name="reasonCategory"><option value="anxiety_panic">Ansiedad o pánico</option><option value="grief">Duelo</option><option value="family_conflict">Conflicto familiar</option><option value="stress">Estrés</option><option value="couple_problems">Problemas de pareja</option><option value="parent_guidance">Orientación a padres</option><option value="other">Otro</option></select></label></div><div class="field"><label>Zona horaria<input name="timezone" value="America/Panama" maxlength="64" required></label></div></div><div class="field"><label>Información adicional<textarea name="notes" maxlength="2000"></textarea></label></div><div class="form-grid"><label><input type="checkbox" name="emergencyCurrent"> Existe una emergencia actual</label><label><input type="checkbox" name="selfOrOthersRisk"> Existe riesgo para mí u otras personas</label><label><input type="checkbox" name="physicalSymptoms"> Presento síntomas físicos importantes</label></div><button class="small-button" type="submit">Enviar solicitud</button><p class="form-message" role="alert"></p></form>
+        <div class="content-heading"><div><span>Solicitudes</span><h3>Mis solicitudes</h3></div></div><div class="content-list" id="service-requests-list"></div>
         <div class="professional-filters"><label class="field" for="professional-directory-search">Buscar profesional o especialidad<input id="professional-directory-search" type="search" placeholder="Nombre, especialidad o servicio" maxlength="120"></label><label class="field" for="professional-directory-type">Profesión<select id="professional-directory-type"><option value="">Todas</option><option value="psychologist">Psicología</option><option value="psychiatrist">Psiquiatría</option><option value="psychopedagogue">Psicopedagogía</option><option value="counselor">Consejería cristiana</option></select></label></div>
         <p class="form-message" id="consultations-message" role="alert"></p><div class="professional-directory" id="consultations-list" aria-live="polite"></div>
         <div class="content-heading"><div><span>Seguimiento</span><h3>Mis consultas</h3></div></div><div class="content-list" id="my-consultations-list"></div>
+        <section class="editor-form"><h3>Suscripciones</h3><div id="subscription-plans"></div><div id="my-subscriptions"></div></section>
+      </section>
+      <section class="content-section dashboard-panel" id="payments-panel" hidden>
+        <div class="content-heading"><div><span>Cuenta</span><h2>Pagos</h2></div><p>Consulta tus órdenes, continúa pagos pendientes o carga un comprobante de transferencia/ACH.</p></div>
+        <div class="course-toolbar"><label class="field" for="student-payment-status">Mostrar órdenes<select id="student-payment-status"><option value="pending">Pendientes</option><option value="processed">Procesadas</option><option value="cancelled">Canceladas</option><option value="all">Todas</option></select></label></div>
+        <p class="empty-state" id="payments-filter-empty" hidden>No hay órdenes en este estado.</p>
+        <div class="content-list" id="student-payments-list" aria-live="polite"></div>
+      </section>
+      <section class="content-section dashboard-panel" id="notifications-panel" hidden>
+        <div class="content-heading"><div><span>Cuenta</span><h2>Notificaciones</h2></div><p>Novedades de pagos, consultas y seguimiento.</p></div>
+        <div class="content-list" id="student-notifications" aria-live="polite"></div>
       </section>
     </main>
   </div>

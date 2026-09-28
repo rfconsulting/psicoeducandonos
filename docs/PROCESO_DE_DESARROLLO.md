@@ -369,6 +369,8 @@ Las migraciones se diseñaron para ser repetibles:
 | `migrate:p8` | Origen trazable de cuentas y habilitación del registro público |
 | `migrate:p9` | Perfil estudiantil progresivo y consentimientos versionados |
 | `migrate:p10` | Historial inmutable de validación estudiantil |
+| `migrate:p11`–`migrate:p24` | Evolución de contenido, comercio, profesionales y agenda |
+| `migrate:p25` | Operaciones, comprobantes, notificaciones, progreso y suscripciones |
 
 Orden requerido:
 
@@ -384,7 +386,11 @@ npm run migrate:p7
 npm run migrate:p8
 npm run migrate:p9
 npm run migrate:p10
+npm run migrate:p11
+# continuar en orden hasta migrate:p25
 ```
+
+El comando recomendado para evitar omisiones es `npm run db:migrate`.
 
 `schema.sql` representa el esquema completo para instalaciones nuevas.
 
@@ -558,3 +564,48 @@ Al 25 de julio de 2026:
 - 26 pruebas automatizadas aprobadas;
 - 61 archivos JavaScript validados;
 - 0 vulnerabilidades reportadas por `npm audit --omit=dev`.
+
+## 24. P25: operaciones, pagos y consultas
+
+En septiembre de 2026 se comparó el esquema real de MySQL con el esquema del
+repositorio y las rutas. Agenda ya utilizaba un catálogo y relaciones no
+representadas por completo en `database/schema.sql`, mientras parte del
+backend conservaba códigos anteriores. P25 reconcilió ambos modelos sin
+eliminar datos.
+
+La fase incorporó:
+
+- catálogo canónico de tipos de servicio;
+- checklist de habilitaciones por profesional;
+- solicitudes de consulta con modalidad y formato;
+- asociación de la solicitud con reserva y cita;
+- órdenes por transferencia para cursos y consultas;
+- carga, descarga y revisión de comprobantes;
+- separación entre medio de pago, liquidación y moneda referencial;
+- notificaciones internas y por correo;
+- recordatorios diarios de consultas pendientes;
+- progreso administrativo de consulta sin datos clínicos;
+- planes y estado local de suscripciones.
+
+La aprobación de un comprobante entrega el producto en la misma unidad
+transaccional: matricula el curso o confirma la cita si la ventana de pago aún
+es válida. La operación queda auditada y se notifica al usuario.
+
+Se agregó `npm run notifications:pending-consultations` para ejecución diaria.
+El proceso deduplica recordatorios por usuario, solicitud y día.
+
+El alcance actual de suscripciones termina en catálogo y ciclo de vida local.
+La facturación recurrente remota requiere crear y vincular planes específicos
+en PayPal o Mercado Pago.
+
+## 25. Estado verificado después de P25
+
+Al 28 de septiembre de 2026:
+
+- migraciones P0–P25 verificadas como idempotentes;
+- 149 pruebas automatizadas aprobadas;
+- 145 archivos JavaScript validados;
+- comprobantes de hasta 5 MB validados por firma real;
+- artefacto productivo generado sin `.env` ni credenciales;
+- documentación operativa consolidada en
+  `docs/OPERACIONES-PAGOS-CONSULTAS.md`.

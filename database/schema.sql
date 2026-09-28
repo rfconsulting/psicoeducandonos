@@ -195,7 +195,8 @@ CREATE TABLE IF NOT EXISTS professional_profiles (
 
 CREATE TABLE IF NOT EXISTS professional_services (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, professional_id BIGINT UNSIGNED NOT NULL,
-  service_type ENUM('psychology','psychiatry','psychopedagogy','counseling') NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
+  service_type VARCHAR(64) NOT NULL, name VARCHAR(180) NOT NULL, description TEXT NOT NULL,
+  delivery_mode ENUM('online','in_person','hybrid') NOT NULL DEFAULT 'online', participant_format ENUM('individual','couple','family','group') NOT NULL DEFAULT 'individual',
   duration_minutes SMALLINT UNSIGNED NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), KEY idx_services_professional (professional_id,active),
@@ -238,8 +239,8 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 CREATE TABLE IF NOT EXISTS payments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, order_id BIGINT UNSIGNED NOT NULL, provider VARCHAR(32) NOT NULL,
-  provider_checkout_id VARCHAR(128) NULL, provider_payment_id VARCHAR(128) NULL, checkout_url VARCHAR(1000) NULL, status ENUM('pending','approved','rejected','cancelled','refunded') NOT NULL DEFAULT 'pending',
-  currency CHAR(3) NOT NULL, amount_minor BIGINT UNSIGNED NOT NULL, approved_at DATETIME NULL,
+  payment_method VARCHAR(32) NOT NULL DEFAULT 'provider_checkout', provider_checkout_id VARCHAR(128) NULL, provider_payment_id VARCHAR(128) NULL, checkout_url VARCHAR(1000) NULL, status ENUM('pending','approved','rejected','cancelled','refunded') NOT NULL DEFAULT 'pending',
+  currency CHAR(3) NOT NULL, amount_minor BIGINT UNSIGNED NOT NULL, reference_currency CHAR(3) NULL, reference_amount_minor BIGINT UNSIGNED NULL, approved_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uq_payment_provider_id (provider,provider_payment_id), KEY idx_payments_order (order_id),
   CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE RESTRICT
@@ -269,7 +270,7 @@ CREATE TABLE IF NOT EXISTS availability_exceptions (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS appointment_holds (
-  id CHAR(36) NOT NULL, professional_id BIGINT UNSIGNED NOT NULL, service_id BIGINT UNSIGNED NOT NULL, client_user_id BIGINT UNSIGNED NOT NULL,
+  id CHAR(36) NOT NULL, service_request_id BIGINT UNSIGNED NULL, professional_id BIGINT UNSIGNED NOT NULL, service_id BIGINT UNSIGNED NOT NULL, client_user_id BIGINT UNSIGNED NOT NULL,
   start_at DATETIME NOT NULL, end_at DATETIME NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uq_hold_professional_start (professional_id,start_at), KEY idx_holds_expiry (expires_at),
   CONSTRAINT fk_hold_professional FOREIGN KEY (professional_id) REFERENCES professional_profiles(id) ON DELETE RESTRICT,
@@ -279,7 +280,7 @@ CREATE TABLE IF NOT EXISTS appointment_holds (
 
 CREATE TABLE IF NOT EXISTS appointments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, public_id CHAR(36) NOT NULL, hold_reference CHAR(36) NULL, professional_id BIGINT UNSIGNED NOT NULL,
-  service_id BIGINT UNSIGNED NOT NULL, client_user_id BIGINT UNSIGNED NOT NULL, start_at DATETIME NOT NULL, end_at DATETIME NOT NULL,
+  service_id BIGINT UNSIGNED NOT NULL, service_request_id BIGINT UNSIGNED NULL, client_user_id BIGINT UNSIGNED NOT NULL, start_at DATETIME NOT NULL, end_at DATETIME NOT NULL,
   timezone VARCHAR(64) NOT NULL, status ENUM('held','pending_payment','confirmed','completed','expired','cancelled_by_client','cancelled_by_professional','no_show','refunded') NOT NULL DEFAULT 'held',
   order_id BIGINT UNSIGNED NULL, payment_expires_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uq_appointment_public (public_id), UNIQUE KEY uq_appointment_hold (hold_reference), KEY idx_appointment_professional (professional_id,start_at), KEY idx_appointment_client (client_user_id,start_at),
@@ -486,4 +487,70 @@ CREATE TABLE IF NOT EXISTS student_profile_reviews (
   KEY idx_profile_reviews_reviewer (reviewer_user_id, created_at),
   CONSTRAINT fk_profile_review_profile FOREIGN KEY (student_profile_user_id) REFERENCES student_profiles(user_id) ON DELETE CASCADE,
   CONSTRAINT fk_profile_review_reviewer FOREIGN KEY (reviewer_user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS service_type_catalog (
+  code VARCHAR(64) NOT NULL, name VARCHAR(120) NOT NULL,
+  care_domain ENUM('clinical','medical','psychoeducational','pastoral','educational','professional','unclassified') NOT NULL,
+  schedulable BOOLEAN NOT NULL DEFAULT TRUE, active BOOLEAN NOT NULL DEFAULT TRUE, sort_order SMALLINT UNSIGNED NOT NULL,
+  PRIMARY KEY (code), UNIQUE KEY uq_service_type_order (sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS professional_service_authorizations (
+  professional_id BIGINT UNSIGNED NOT NULL, service_type_code VARCHAR(64) NOT NULL, authorized_by BIGINT UNSIGNED NULL,
+  authorized_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (professional_id,service_type_code),
+  CONSTRAINT fk_service_authorization_professional FOREIGN KEY (professional_id) REFERENCES professional_profiles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_service_authorization_type FOREIGN KEY (service_type_code) REFERENCES service_type_catalog(code),
+  CONSTRAINT fk_service_authorization_actor FOREIGN KEY (authorized_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS service_requests (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, public_id CHAR(36) NOT NULL, user_id BIGINT UNSIGNED NOT NULL,
+  service_type VARCHAR(64) NOT NULL, delivery_mode ENUM('online','in_person') NOT NULL, participant_format ENUM('individual','couple','family','group') NOT NULL,
+  reason_category ENUM('anxiety_panic','grief','family_conflict','stress','couple_problems','parent_guidance','other') NOT NULL,
+  timezone VARCHAR(64) NOT NULL, preferred_professional_id BIGINT UNSIGNED NULL, emergency_current BOOLEAN NOT NULL DEFAULT FALSE,
+  self_or_others_risk BOOLEAN NOT NULL DEFAULT FALSE, physical_symptoms BOOLEAN NOT NULL DEFAULT FALSE, notes VARCHAR(2000) NULL,
+  status ENUM('pending_scheduling','safety_review','needs_classification','scheduled','cancelled') NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id), UNIQUE KEY uq_service_request_public (public_id), KEY idx_service_request_user (user_id,created_at), KEY idx_service_request_status (status,created_at),
+  CONSTRAINT fk_service_request_user FOREIGN KEY (user_id) REFERENCES users(id), CONSTRAINT fk_service_request_type FOREIGN KEY (service_type) REFERENCES service_type_catalog(code),
+  CONSTRAINT fk_service_request_professional FOREIGN KEY (preferred_professional_id) REFERENCES professional_profiles(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, user_id BIGINT UNSIGNED NOT NULL, type VARCHAR(64) NOT NULL, title VARCHAR(180) NOT NULL,
+  message VARCHAR(1000) NOT NULL, action_url VARCHAR(500) NULL, read_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id), KEY idx_notification_user (user_id,read_at,created_at), CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS payment_receipts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, order_id BIGINT UNSIGNED NOT NULL, uploader_user_id BIGINT UNSIGNED NOT NULL,
+  original_name VARCHAR(255) NOT NULL, mime_type VARCHAR(100) NOT NULL, size_bytes INT UNSIGNED NOT NULL, file_data MEDIUMBLOB NOT NULL,
+  status ENUM('pending','accepted','rejected') NOT NULL DEFAULT 'pending', reviewed_by BIGINT UNSIGNED NULL, reviewed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id), UNIQUE KEY uq_receipt_order (order_id),
+  CONSTRAINT fk_receipt_order FOREIGN KEY (order_id) REFERENCES orders(id), CONSTRAINT fk_receipt_uploader FOREIGN KEY (uploader_user_id) REFERENCES users(id),
+  CONSTRAINT fk_receipt_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS clinical_record_progress (
+  appointment_id BIGINT UNSIGNED NOT NULL, status ENUM('not_started','intake_pending','in_progress','follow_up','closed') NOT NULL DEFAULT 'not_started',
+  updated_by BIGINT UNSIGNED NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (appointment_id), CONSTRAINT fk_clinical_progress_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+  CONSTRAINT fk_clinical_progress_actor FOREIGN KEY (updated_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, product_id BIGINT UNSIGNED NOT NULL, name VARCHAR(180) NOT NULL,
+  currency CHAR(3) NOT NULL, amount_minor BIGINT UNSIGNED NOT NULL, interval_unit ENUM('month','year') NOT NULL, interval_count TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  active BOOLEAN NOT NULL DEFAULT TRUE, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id), KEY idx_subscription_plan_product (product_id,active),
+  CONSTRAINT fk_subscription_plan_product FOREIGN KEY (product_id) REFERENCES products(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, public_id CHAR(36) NOT NULL, user_id BIGINT UNSIGNED NOT NULL, plan_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('pending','active','past_due','cancelled','expired') NOT NULL DEFAULT 'pending', provider VARCHAR(32) NULL, provider_subscription_id VARCHAR(128) NULL,
+  current_period_start DATETIME NULL, current_period_end DATETIME NULL, cancelled_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id), UNIQUE KEY uq_subscription_public (public_id), UNIQUE KEY uq_subscription_provider (provider,provider_subscription_id), KEY idx_subscription_user (user_id,status),
+  CONSTRAINT fk_subscription_user FOREIGN KEY (user_id) REFERENCES users(id), CONSTRAINT fk_subscription_plan FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
 ) ENGINE=InnoDB;

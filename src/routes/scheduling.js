@@ -71,10 +71,30 @@ router.get('/services', requireRole('student'), async (_req, res, next) => {
 router.get('/appointments/my', requireRole('student'), async (req, res, next) => {
   try {
     const [appointments] = await pool.execute(`SELECT a.public_id AS reference,a.start_at AS startAt,a.end_at AS endAt,a.timezone,a.status,
+      COALESCE(cp.status,'not_started') AS clinicalProgress,
       s.name AS serviceName,u.full_name AS professionalName,o.public_id AS orderReference,o.status AS orderStatus
       FROM appointments a JOIN professional_services s ON s.id=a.service_id JOIN professional_profiles p ON p.id=a.professional_id
-      JOIN users u ON u.id=p.user_id LEFT JOIN orders o ON o.id=a.order_id WHERE a.client_user_id=? ORDER BY a.start_at DESC LIMIT 100`, [req.authUser.id]);
+      JOIN users u ON u.id=p.user_id LEFT JOIN orders o ON o.id=a.order_id LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
+      WHERE a.client_user_id=? ORDER BY a.start_at DESC LIMIT 100`, [req.authUser.id]);
     return res.json({ appointments });
+  } catch (error) { return next(error); }
+});
+
+router.get('/professional/appointments/pending', requireAuth, async (req, res, next) => {
+  try {
+    const [[professional]] = await pool.execute(`SELECT id,timezone FROM professional_profiles
+      WHERE user_id=? AND status='active' AND credential_status='verified' LIMIT 1`, [req.authUser.id]);
+    if (!professional) return res.json({ professional: null, appointments: [] });
+    const [appointments] = await pool.execute(`SELECT a.public_id AS reference,a.start_at AS startAt,a.end_at AS endAt,
+      a.timezone,a.status,s.name AS serviceName,u.full_name AS clientName,u.email AS clientEmail,
+      r.delivery_mode AS deliveryMode,r.participant_format AS participantFormat,r.reason_category AS reasonCategory,
+      COALESCE(cp.status,'not_started') AS administrativeProgress
+      FROM appointments a JOIN professional_services s ON s.id=a.service_id
+      JOIN users u ON u.id=a.client_user_id LEFT JOIN service_requests r ON r.id=a.service_request_id
+      LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
+      WHERE a.professional_id=? AND a.status IN ('pending_payment','confirmed')
+      ORDER BY a.start_at ASC LIMIT 200`, [professional.id]);
+    return res.json({ professional: { id: professional.id, timezone: professional.timezone }, appointments });
   } catch (error) { return next(error); }
 });
 
@@ -148,13 +168,15 @@ router.get('/professionals', requireCapability(CAPABILITIES.SCHEDULING_MANAGE), 
     const [candidates] = await pool.execute(`SELECT u.id,u.full_name AS fullName,u.email,u.role FROM users u
       LEFT JOIN professional_profiles p ON p.user_id=u.id WHERE u.status='active' AND (p.id IS NULL OR p.credential_status IN ('pending','rejected')) ORDER BY u.full_name LIMIT 500`);
     const ids = professionals.map(item => item.id);
-    let services = []; let availability = [];
+    let services = []; let availability = []; let authorizations = [];
     if (ids.length) {
       const placeholders = ids.map(() => '?').join(',');
       [services] = await pool.execute(`SELECT id,professional_id AS professionalId,service_type AS serviceType,name,description,duration_minutes AS durationMinutes,active
         FROM professional_services WHERE professional_id IN (${placeholders}) ORDER BY name`, ids);
       [availability] = await pool.execute(`SELECT id,professional_id AS professionalId,weekday,start_time AS startTime,end_time AS endTime,active
         FROM availability_rules WHERE professional_id IN (${placeholders}) ORDER BY FIELD(weekday,'mon','tue','wed','thu','fri','sat','sun'),start_time`, ids);
+      [authorizations] = await pool.execute(`SELECT professional_id AS professionalId,service_type_code AS serviceType
+        FROM professional_service_authorizations WHERE professional_id IN (${placeholders})`, ids);
       const serviceIds = services.map(item => item.id);
       if (serviceIds.length) {
         const servicePlaceholders = serviceIds.map(() => '?').join(',');
@@ -167,8 +189,10 @@ router.get('/professionals', requireCapability(CAPABILITIES.SCHEDULING_MANAGE), 
     professionals.forEach(item => {
       item.services = services.filter(service => Number(service.professionalId) === Number(item.id)).map(service => ({ ...service, active: Boolean(service.active) }));
       item.availability = availability.filter(rule => Number(rule.professionalId) === Number(item.id)).map(rule => ({ ...rule, active: Boolean(rule.active) }));
+      item.authorizedServiceTypes = authorizations.filter(row => Number(row.professionalId) === Number(item.id)).map(row => row.serviceType);
     });
-    return res.json({ professionals, candidates });
+    const [serviceTypes] = await pool.execute('SELECT code,name,care_domain AS careDomain FROM service_type_catalog WHERE active=TRUE ORDER BY sort_order');
+    return res.json({ professionals, candidates, serviceTypes });
   } catch (error) { return next(error); }
 });
 
@@ -279,10 +303,14 @@ router.post('/professionals/:professionalId/services', requireCapability(CAPABIL
   try {
     const professionalId = Number(req.params.professionalId); const duration = Number(req.body.durationMinutes); const name = text(req.body.name, 180); const description = text(req.body.description, 10000);
     if (!Number.isSafeInteger(professionalId) || !validServiceType(req.body.serviceType) || !Number.isInteger(duration) || duration < 15 || duration > 240 || name.length < 5 || description.length < 20) return res.status(422).json({ error: 'Datos del servicio inválidos.' });
-    const [[professional]] = await pool.execute("SELECT professional_type AS professionalType FROM professional_profiles WHERE id=? AND status='active' AND credential_status='verified' LIMIT 1", [professionalId]);
+    const [[professional]] = await pool.execute(`SELECT p.professional_type AS professionalType,a.service_type_code AS authorizedType
+      FROM professional_profiles p LEFT JOIN professional_service_authorizations a ON a.professional_id=p.id AND a.service_type_code=?
+      WHERE p.id=? AND p.status='active' AND p.credential_status='verified' LIMIT 1`, [req.body.serviceType, professionalId]);
     if (!professional) return res.status(404).json({ error: 'Profesional no encontrado.' });
-    if (!professionalCanOffer(professional.professionalType, req.body.serviceType)) return res.status(422).json({ error: 'El servicio no corresponde al tipo de profesional.' });
-    const [result] = await pool.execute('INSERT INTO professional_services (professional_id,service_type,name,description,duration_minutes) VALUES (?,?,?,?,?)', [professionalId, req.body.serviceType, name, description, duration]);
+    if (!professional.authorizedType || !professionalCanOffer(professional.professionalType, req.body.serviceType)) return res.status(422).json({ error: 'El profesional no está habilitado para ese tipo de servicio.' });
+    const deliveryMode = ['online','in_person','hybrid'].includes(req.body.deliveryMode) ? req.body.deliveryMode : 'online';
+    const participantFormat = ['individual','couple','family','group'].includes(req.body.participantFormat) ? req.body.participantFormat : 'individual';
+    const [result] = await pool.execute('INSERT INTO professional_services (professional_id,service_type,name,description,delivery_mode,participant_format,duration_minutes) VALUES (?,?,?,?,?,?,?)', [professionalId, req.body.serviceType, name, description, deliveryMode, participantFormat, duration]);
     return res.status(201).json({ message: 'Servicio creado.', id: result.insertId });
   } catch (error) { return next(error); }
 });

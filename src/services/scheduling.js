@@ -1,12 +1,17 @@
 const WEEKDAYS = ['sun','mon','tue','wed','thu','fri','sat'];
 const PROFESSIONAL_TYPES = Object.freeze(['psychologist', 'psychiatrist', 'psychopedagogue', 'counselor']);
-const SERVICE_TYPES = Object.freeze(['psychology', 'psychiatry', 'psychopedagogy', 'counseling']);
-const SERVICE_BY_PROFESSIONAL = Object.freeze({ psychologist: 'psychology', psychiatrist: 'psychiatry', psychopedagogue: 'psychopedagogy', counselor: 'counseling' });
+const SERVICE_TYPES = Object.freeze(['psychological_consultation','psychiatric_consultation','psychoeducational_guidance','pastoral_counseling','couples_family_therapy','workshop_course','professional_supervision','other']);
+const SERVICE_BY_PROFESSIONAL = Object.freeze({
+  psychologist: ['psychological_consultation','psychoeducational_guidance','couples_family_therapy','workshop_course','professional_supervision'],
+  psychiatrist: ['psychiatric_consultation','psychoeducational_guidance','workshop_course','professional_supervision'],
+  psychopedagogue: ['psychoeducational_guidance','workshop_course','professional_supervision'],
+  counselor: ['pastoral_counseling','psychoeducational_guidance','workshop_course']
+});
 const CONSULTATION_BUFFER_MINUTES = 10;
 
 function validProfessionalType(value) { return PROFESSIONAL_TYPES.includes(value); }
 function validServiceType(value) { return SERVICE_TYPES.includes(value); }
-function professionalCanOffer(professionalType, serviceType) { return SERVICE_BY_PROFESSIONAL[professionalType] === serviceType; }
+function professionalCanOffer(professionalType, serviceType) { return SERVICE_BY_PROFESSIONAL[professionalType]?.includes(serviceType) === true; }
 
 function validTimezone(timezone) {
   try { new Intl.DateTimeFormat('en', { timeZone: timezone }).format(); return true; } catch { return false; }

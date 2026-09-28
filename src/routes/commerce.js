@@ -8,6 +8,7 @@ const { courseForManagement } = require('../services/course-management');
 const { fakeProvider, mercadoPagoProvider, paypalProvider, verifySignature, verifyMercadoPagoSignature } = require('../services/payment-provider');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
+const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 function paypal() {
@@ -137,10 +138,57 @@ router.post('/consultation-holds/:holdId/checkout', requireRole('student'), veri
   } catch (error) { return next(error); }
 });
 
+router.get('/orders/my', requireRole('student'), async (req, res, next) => {
+  try {
+    const [orders] = await pool.execute(`SELECT o.public_id AS reference,o.status,o.currency,o.total_minor AS totalMinor,
+      o.paid_at AS paidAt,o.created_at AS createdAt,pay.provider,pay.payment_method AS paymentMethod,
+      pay.status AS paymentStatus,pay.checkout_url AS checkoutUrl,pay.currency AS settlementCurrency,
+      pay.amount_minor AS settlementAmountMinor,pay.reference_currency AS referenceCurrency,
+      pay.reference_amount_minor AS referenceAmountMinor,r.status AS receiptStatus,r.original_name AS receiptName,
+      (SELECT GROUP_CONCAT(oi.description ORDER BY oi.id SEPARATOR ' · ') FROM order_items oi WHERE oi.order_id=o.id) AS description
+      FROM orders o LEFT JOIN payments pay ON pay.order_id=o.id
+      LEFT JOIN payment_receipts r ON r.order_id=o.id
+      WHERE o.buyer_user_id=? ORDER BY o.created_at DESC LIMIT 200`, [req.authUser.id]);
+    return res.json({ orders });
+  } catch (error) { return next(error); }
+});
+
+router.delete('/orders/:reference', requireRole('student'), verifyCsrf, async (req, res, next) => {
+  try {
+    const reference = String(req.params.reference || '').slice(0, 36);
+    if (!/^[0-9a-f-]{36}$/i.test(reference)) return res.status(422).json({ error: 'Orden inválida.' });
+    const result = await withTransaction(async connection => {
+      const [[order]] = await connection.execute(`SELECT o.id,o.status,pay.status AS paymentStatus,pay.provider,pay.payment_method AS paymentMethod,
+        r.status AS receiptStatus FROM orders o JOIN payments pay ON pay.order_id=o.id
+        LEFT JOIN payment_receipts r ON r.order_id=o.id
+        WHERE o.public_id=? AND o.buyer_user_id=? LIMIT 1 FOR UPDATE`, [reference, req.authUser.id]);
+      if (!order) return 'missing';
+      if (order.paymentMethod !== 'manual_transfer' && order.provider !== 'paypal') return 'provider';
+      if (!['pending','processing'].includes(order.status) || order.paymentStatus !== 'pending') return 'settled';
+      if (order.receiptStatus === 'pending' || order.receiptStatus === 'accepted') return 'receipt';
+      await connection.execute("UPDATE payments SET status='cancelled' WHERE order_id=? AND status='pending'", [order.id]);
+      await connection.execute("UPDATE orders SET status='cancelled' WHERE id=? AND status IN ('pending','processing')", [order.id]);
+      const [[appointment]] = await connection.execute("SELECT id,start_at AS startAt FROM appointments WHERE order_id=? AND status='pending_payment' LIMIT 1 FOR UPDATE", [order.id]);
+      if (appointment) {
+        await connection.execute("UPDATE appointments SET status='cancelled_by_client' WHERE id=?", [appointment.id]);
+        await connection.execute("INSERT INTO appointment_events (appointment_id,actor_user_id,event_type,old_start_at,details) VALUES (?,?,'cancelled',?,JSON_OBJECT('reason','order_removed'))", [appointment.id, req.authUser.id, appointment.startAt]);
+      }
+      await audit(req, 'order_cancelled_by_student', 'order', order.id, { reference, provider: order.provider }, { db: connection, required: true });
+      return 'cancelled';
+    });
+    if (result === 'missing') return res.status(404).json({ error: 'Orden no encontrada.' });
+    if (result === 'provider') return res.status(409).json({ error: 'Esta orden pertenece a un proveedor que no admite eliminación desde aquí.' });
+    if (result === 'settled') return res.status(409).json({ error: 'Una orden pagada, cancelada o procesada no puede eliminarse.' });
+    if (result === 'receipt') return res.status(409).json({ error: 'La orden tiene un comprobante en revisión o aprobado y no puede eliminarse.' });
+    return res.json({ message: 'Orden eliminada de tus pagos pendientes.' });
+  } catch (error) { return next(error); }
+});
+
 router.get('/orders/:reference', requireAuth, async (req, res, next) => {
   try {
     const [[order]] = await pool.execute(`SELECT o.public_id AS reference,o.status,o.currency,o.total_minor AS totalMinor,o.paid_at AS paidAt,o.created_at AS createdAt,
-      pay.provider,pay.provider_checkout_id AS providerCheckoutId FROM orders o LEFT JOIN payments pay ON pay.order_id=o.id
+      pay.provider,pay.payment_method AS paymentMethod,pay.currency AS settlementCurrency,pay.amount_minor AS settlementAmountMinor,
+      pay.reference_currency AS referenceCurrency,pay.reference_amount_minor AS referenceAmountMinor,pay.provider_checkout_id AS providerCheckoutId FROM orders o LEFT JOIN payments pay ON pay.order_id=o.id
       WHERE o.public_id=? AND o.buyer_user_id=? LIMIT 1`, [String(req.params.reference).slice(0, 36), req.authUser.id]);
     if (!order) return res.status(404).json({ error: 'Orden no encontrada.' });
     return res.json({ order });
@@ -151,11 +199,12 @@ router.post('/orders/:reference/paypal-capture', requireAuth, verifyCsrf, async 
   try {
     if (!['paypal', 'multi'].includes(env.paymentProvider)) return res.status(404).json({ error: 'Ruta no encontrada.' });
     const reference = String(req.params.reference || '').slice(0, 36);
-    const [[payment]] = await pool.execute(`SELECT pay.provider_checkout_id AS providerCheckoutId,o.status
+    const [[payment]] = await pool.execute(`SELECT pay.provider_checkout_id AS providerCheckoutId,o.status AS orderStatus,pay.status AS paymentStatus
       FROM orders o JOIN payments pay ON pay.order_id=o.id AND pay.provider='paypal'
       WHERE o.public_id=? AND o.buyer_user_id=? LIMIT 1`, [reference, req.authUser.id]);
     if (!payment) return res.status(404).json({ error: 'Orden de PayPal no encontrada.' });
-    if (payment.status === 'paid') return res.json({ received: true, status: 'paid' });
+    if (payment.orderStatus === 'paid') return res.json({ received: true, status: 'paid' });
+    if (!['pending','processing'].includes(payment.orderStatus) || payment.paymentStatus !== 'pending') return res.status(409).json({ error: 'La orden de PayPal fue cancelada o ya no admite pagos.' });
     await paypal().captureOrder(payment.providerCheckoutId, `capture-${reference}`);
     return res.status(202).json({ received: true, status: 'processing' });
   } catch (error) { return next(error); }
@@ -196,6 +245,7 @@ router.post('/webhooks/fake', async (req, res, next) => {
       }
       await connection.execute("UPDATE orders SET status='paid',paid_at=UTC_TIMESTAMP() WHERE id=? AND status IN ('pending','processing')", [payment.orderId]);
       const [[purchase]] = await connection.execute('SELECT o.buyer_user_id AS buyerId,p.course_id AS courseId,p.service_id AS serviceId FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN products p ON p.id=oi.product_id WHERE o.id=? LIMIT 1', [payment.orderId]);
+      await createNotification({ userId: purchase.buyerId, type: 'payment_approved', title: 'Pago confirmado', message: 'Tu pago fue confirmado correctamente.', actionUrl: '/estudiante.html', db: connection });
       if (purchase?.courseId) await connection.execute(`INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source,order_id) VALUES (?,?,?,'paid',?)
         ON DUPLICATE KEY UPDATE enrollment_source='paid',order_id=VALUES(order_id),status=IF(status='completed','completed','active')`, [purchase.courseId, purchase.buyerId, purchase.buyerId, payment.orderId]);
       if (purchase?.serviceId) {
@@ -269,6 +319,7 @@ router.post('/webhooks/paypal', async (req, res, next) => {
       await connection.execute("UPDATE payments SET provider_payment_id=?,status='approved',approved_at=UTC_TIMESTAMP() WHERE id=?", [captureId, payment.id]);
       await connection.execute("UPDATE orders SET status='paid',paid_at=UTC_TIMESTAMP() WHERE id=? AND status IN ('pending','processing')", [payment.orderId]);
       const [[purchase]] = await connection.execute('SELECT o.buyer_user_id AS buyerId,p.course_id AS courseId,p.service_id AS serviceId FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN products p ON p.id=oi.product_id WHERE o.id=? LIMIT 1', [payment.orderId]);
+      await createNotification({ userId: purchase.buyerId, type: 'payment_approved', title: 'Pago confirmado', message: 'Tu pago fue confirmado correctamente.', actionUrl: '/estudiante.html', db: connection });
       if (purchase?.courseId) await connection.execute(`INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source,order_id) VALUES (?,?,?,'paid',?)
         ON DUPLICATE KEY UPDATE enrollment_source='paid',order_id=VALUES(order_id),status=IF(status='completed','completed','active')`, [purchase.courseId, purchase.buyerId, purchase.buyerId, payment.orderId]);
       if (purchase?.serviceId) {
@@ -310,6 +361,7 @@ router.post('/webhooks/mercadopago', async (req, res, next) => {
       if (normalizedStatus !== 'approved') { await connection.execute("UPDATE appointments SET status='expired' WHERE order_id=? AND status='pending_payment'", [payment.orderId]); return 'processed'; }
       await connection.execute("UPDATE orders SET status='paid',paid_at=UTC_TIMESTAMP() WHERE id=? AND status IN ('pending','processing')", [payment.orderId]);
       const [[purchase]] = await connection.execute('SELECT o.buyer_user_id AS buyerId,p.course_id AS courseId,p.service_id AS serviceId FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN products p ON p.id=oi.product_id WHERE o.id=? LIMIT 1', [payment.orderId]);
+      await createNotification({ userId: purchase.buyerId, type: 'payment_approved', title: 'Pago confirmado', message: 'Tu pago fue confirmado correctamente.', actionUrl: '/estudiante.html', db: connection });
       if (purchase?.courseId) await connection.execute(`INSERT INTO course_enrollments (course_id,student_id,enrolled_by,enrollment_source,order_id) VALUES (?,?,?,'paid',?) ON DUPLICATE KEY UPDATE enrollment_source='paid',order_id=VALUES(order_id),status=IF(status='completed','completed','active')`, [purchase.courseId, purchase.buyerId, purchase.buyerId, payment.orderId]);
       if (purchase?.serviceId) {
         const [[appointment]] = await connection.execute("SELECT id,status,payment_expires_at AS paymentExpiresAt FROM appointments WHERE order_id=? LIMIT 1 FOR UPDATE", [payment.orderId]);

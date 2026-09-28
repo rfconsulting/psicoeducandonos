@@ -30,8 +30,10 @@
         <button class="nav-item" type="button" data-panel-target="blog-section" id="blog-nav">Blog</button>
         <button class="nav-item" type="button" data-panel-target="courses-section" id="courses-nav">Formación</button>
         <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
+        <button class="nav-item" type="button" data-panel-target="professional-consultations-section" id="professional-consultations-nav" hidden>Mis consultas</button>
         <button class="nav-item" type="button" data-panel-target="admin-section" id="users-nav" hidden>Usuarios</button>
         <button class="nav-item" type="button" data-panel-target="professionals-section" id="professionals-nav" hidden>Profesionales y agenda</button>
+        <button class="nav-item" type="button" data-panel-target="operations-section" id="operations-nav" hidden>Pagos y consultas</button>
         <button class="nav-item" type="button" data-panel-target="profile-reviews-section" id="profile-reviews-nav" hidden>Validación de estudiantes</button>
         <button class="nav-item" type="button" data-panel-target="audit-section" id="audit-nav" hidden>Registro de actividad</button>
       </nav>
@@ -251,6 +253,19 @@
       <div class="content-heading"><div><span>Onboarding</span><h2>Validación de estudiantes</h2></div><p>Revisa perfiles enviados y conserva un historial de cada decisión.</p></div>
       <form class="application-filters" id="profile-review-filters"><div class="field"><label>Buscar</label><input name="search" maxlength="120" placeholder="Nombre o correo"></div><div class="field"><label>Estado</label><select name="status"><option value="submitted" selected>Pendiente</option><option value="under_review">En revisión</option><option value="changes_requested">Requiere correcciones</option><option value="approved">Aprobado</option><option value="rejected">Rechazado</option><option value="">Todos</option></select></div><div class="application-filter-actions"><button class="small-button" type="submit">Filtrar</button><button class="small-button secondary-button" id="profile-reviews-clear" type="button">Limpiar</button></div></form>
       <p class="form-message" id="profile-reviews-message" role="alert"></p><div class="applications-list" id="profile-reviews-list"></div><button class="small-button audit-more" id="profile-reviews-more" type="button" hidden>Cargar anteriores</button>
+    </section>
+    <section class="admin-section dashboard-panel" id="operations-section" hidden>
+      <div class="content-heading"><div><span>Operación</span><h2>Pagos y consultas</h2></div><p>Revisa comprobantes y actualiza únicamente el estado administrativo de las consultas.</p></div>
+      <h3>Comprobantes pendientes</h3><div class="applications-list" id="payment-receipts-list"></div>
+      <h3>Progreso administrativo</h3><div class="applications-list" id="clinical-progress-list"></div>
+      <p class="form-message" id="operations-message"></p>
+    </section>
+
+    <section class="content-section dashboard-panel" id="professional-consultations-section" hidden>
+      <div class="content-heading"><div><span>Agenda profesional</span><h2>Mis consultas pendientes</h2></div><p>Consultas asignadas a tu perfil profesional, ordenadas por fecha.</p></div>
+      <div class="course-toolbar"><label class="field" for="professional-consultation-status">Estado<select id="professional-consultation-status"><option value="">Todas las pendientes</option><option value="confirmed">Confirmadas</option><option value="pending_payment">Pendientes de pago</option></select></label></div>
+      <div class="applications-list" id="professional-consultations-list" aria-live="polite"></div>
+      <p class="form-message" id="professional-consultations-message" role="alert"></p>
     </section>
 
     <section class="admin-section dashboard-panel" id="audit-section" hidden>

@@ -128,6 +128,7 @@ app.use('/api/student-profile', require('./routes/student-profile'));
 app.use('/api/student-profile-reviews', require('./routes/student-profile-reviews'));
 app.use('/api/commerce', require('./routes/commerce'));
 app.use('/api/scheduling', require('./routes/scheduling'));
+app.use('/api/operations', require('./routes/operations'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.get('/api/health', async (_req, res, next) => {
   try {

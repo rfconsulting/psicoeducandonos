@@ -79,4 +79,15 @@ function securityAlertTemplate({ type, fields, occurredAt }) {
   };
 }
 
-module.exports = { escapeHtml, passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate };
+function notificationTemplate({ title, message, actionUrl }) {
+  const safeTitle = escapeHtml(String(title).slice(0, 180));
+  const safeMessage = escapeHtml(String(message).slice(0, 1000));
+  const safeUrl = actionUrl ? escapeHtml(actionUrl) : '';
+  return {
+    subject: String(title).slice(0, 180),
+    text: `${title}\n\n${message}${actionUrl ? `\n\n${actionUrl}` : ''}`,
+    html: `<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;color:#173c36"><h1>${safeTitle}</h1><p>${safeMessage}</p>${safeUrl ? `<p><a href="${safeUrl}">Ver en Psicoeducándonos</a></p>` : ''}</body></html>`
+  };
+}
+
+module.exports = { escapeHtml, passwordResetTemplate, emailVerificationTemplate, securityAlertTemplate, notificationTemplate };

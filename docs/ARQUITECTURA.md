@@ -58,7 +58,7 @@ El frontend se sirve desde la misma aplicación y usa `fetch` same-origin. No ex
 │   └── *.js
 ├── scripts/
 │   ├── create-superuser.js
-│   ├── migrate-p0.js ... migrate-p10.js
+│   ├── migrate-p0.js ... migrate-p25.js
 │   ├── build-hostinger-archive.js
 │   ├── retention.js
 │   ├── check-js.js
@@ -134,6 +134,9 @@ La autenticación revalida MySQL en cada solicitud protegida.
 | `applications.js` | postulación pública y revisión de admisiones |
 | `audit-log.js` | consulta filtrada del registro de actividad |
 | `dashboard.js` | estadísticas globales para administrador y superusuario |
+| `scheduling.js` | profesionales, servicios, disponibilidad, reservas y citas |
+| `commerce.js` | precios, checkout y webhooks de pago |
+| `operations.js` | solicitudes, comprobantes, notificaciones, progreso y suscripciones |
 
 ### Repositorios
 
@@ -151,6 +154,8 @@ El patrón debe extenderse a usuarios y aprendizaje cuando crezca la complejidad
 | `mfa.js` | TOTP y cifrado |
 | `password-reset.js` | entrega de enlaces |
 | `security-alert.js` | alertas externas |
+| `scheduling.js` | reglas de agenda, zonas horarias y compatibilidad de servicios |
+| `notifications.js` | notificación interna y correo de mejor esfuerzo |
 
 ## 5. Flujo HTTP
 
@@ -673,3 +678,59 @@ GET /styles.css               → 200 text/css
 GET /api/health               → 200 {"status":"ok"}
 GET /api/dashboard/statistics → 401 sin sesión
 ```
+
+## 25. Operaciones incorporadas en P25
+
+P25 reconcilia el esquema acumulado con los módulos de agenda y comercio e
+incorpora el dominio operativo de `src/routes/operations.js`.
+
+```text
+service_type_catalog
+  ├── professional_service_authorizations
+  └── professional_services
+
+service_requests → appointment_holds → appointments
+                                         └── clinical_record_progress
+
+orders
+  ├── payments
+  └── payment_receipts
+
+subscription_plans → subscriptions
+users → notifications
+```
+
+Las escrituras usan autenticación, CSRF, SQL parametrizado y transacciones con
+auditoría cuando cambian estado financiero, habilitaciones o seguimiento. Los
+comprobantes se limitan a 5 MB y se validan por firma binaria.
+
+`payment_method` representa el canal. `currency` y `amount_minor` representan
+la liquidación; `reference_currency` y `reference_amount_minor` conservan la
+referencia comercial sin mezclar ambos conceptos.
+
+El estado de Historia Clínica es exclusivamente administrativo. La tabla
+`clinical_record_progress` no contiene diagnósticos, notas, observaciones ni
+texto clínico.
+
+Las suscripciones mantienen estado local y referencias externas. Crear
+acuerdos recurrentes en PayPal o Mercado Pago requiere vincular planes remotos
+y sus webhooks.
+
+La referencia detallada está en `docs/OPERACIONES-PAGOS-CONSULTAS.md`.
+
+## 26. Migraciones vigentes
+
+La secuencia actual llega hasta P25. El comando canónico es:
+
+```powershell
+npm run db:migrate
+```
+
+Para validar idempotencia sobre el esquema acumulado:
+
+```powershell
+npm run db:verify
+```
+
+El artefacto de Hostinger incluye P24, P25 y el trabajo de recordatorios de
+consultas pendientes.
