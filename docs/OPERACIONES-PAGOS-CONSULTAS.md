@@ -89,6 +89,37 @@ Una aprobación confirma orden y pago. Para cursos crea o reactiva la
 matrícula; para consultas confirma una cita pendiente solo si su ventana de
 pago sigue vigente. La decisión genera auditoría, notificación y correo.
 
+### Menú Pagos del estudiante
+
+El panel estudiantil contiene una sección independiente **Pagos**. La vista
+inicial muestra órdenes pendientes y permite filtrar por:
+
+- pendientes: `pending` y `processing`;
+- procesadas: pagadas y reembolsadas;
+- canceladas: `cancelled` y `expired`;
+- todas.
+
+Cada orden presenta referencia, descripción, importe, método, moneda
+referencial y estado del comprobante. Las órdenes de proveedor conservan el
+enlace **Continuar pago**. Las órdenes de Transferencia/ACH permiten cargar o
+reemplazar el comprobante desde la misma tarjeta.
+
+Las órdenes manuales o PayPal todavía no pagadas pueden cancelarse desde
+**Eliminar orden**. Es una cancelación lógica y auditada: el registro permanece
+en el histórico y una consulta asociada queda `cancelled_by_client`. No se
+pueden eliminar órdenes pagadas ni órdenes con comprobante en revisión o
+aprobado. Una orden PayPal cancelada deja de admitir captura desde la
+aplicación.
+
+```text
+GET    /api/commerce/orders/my
+DELETE /api/commerce/orders/:reference
+```
+
+La descarga administrativa conserva una extensión segura derivada del MIME:
+`.jpg`, `.png`, `.webp` o `.pdf`. No se utiliza la extensión declarada por el
+usuario para construir el archivo descargado.
+
 ## Notificaciones y recordatorios
 
 ```text
@@ -125,6 +156,21 @@ PATCH /api/operations/appointments/:reference/clinical-progress
 Cada cambio registra responsable y fecha, genera auditoría y notifica al
 estudiante. No existe un campo libre para información clínica.
 
+## Menú profesional
+
+Una cuenta del dashboard vinculada mediante `professional_profiles.user_id` a
+un perfil activo y verificado recibe el menú **Mis consultas**. El menú no se
+habilita por el nombre del rol sino por esa relación vigente.
+
+La vista muestra únicamente consultas asignadas al profesional autenticado en
+estado `pending_payment` o `confirmed`, con filtros por estado, estudiante,
+servicio, fecha, modalidad, formato y progreso administrativo. No entrega
+diagnósticos, notas terapéuticas ni campos clínicos libres.
+
+```text
+GET /api/scheduling/professional/appointments/pending
+```
+
 ## Suscripciones
 
 ```text
@@ -155,3 +201,7 @@ Después del despliegue prueba: habilitación profesional, solicitud y reserva,
 orden manual, carga y aprobación de comprobante, confirmación de matrícula o
 cita, progreso administrativo, notificaciones y ejecución manual del trabajo
 de consultas pendientes.
+
+Comprueba también que el estudiante pueda filtrar, continuar y cancelar
+órdenes pendientes; que el comprobante descargado conserve su extensión; y que
+una cuenta profesional verificada vea exclusivamente sus consultas.

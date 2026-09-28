@@ -141,11 +141,17 @@ Panel estudiantil:
 - **Pagos:** checkout por proveedor o transferencia con carga de comprobante.
 - **Notificaciones:** pagos, consultas pendientes y cambios de progreso.
 - **Suscripciones:** planes disponibles y estado de las suscripciones propias.
+- **Historial de pagos:** filtros por estado, continuación de checkout,
+  Transferencia/ACH y cancelación segura de órdenes pendientes.
 
 El panel administrativo incorpora el checklist de tipos de servicio habilitados
 por profesional, revisión de comprobantes y actualización del progreso
 administrativo de las consultas. Consulta la [guía operativa](docs/OPERACIONES-PAGOS-CONSULTAS.md)
 para conocer endpoints, permisos y flujos completos.
+
+Las cuentas vinculadas a un perfil profesional activo y verificado disponen de
+**Mis consultas**, una agenda privada de citas confirmadas y pendientes de
+pago.
 
 En pantallas pequeñas, el menú lateral se convierte en una navegación horizontal desplazable.
 
@@ -391,6 +397,11 @@ La ejecución elimina tokens usados o expirados, borra eventos de auditoría ven
 - Escaneo de patrones de secretos.
 
 ## Despliegue en Hostinger
+
+Consulta la guía operativa completa en
+[`docs/DESPLIEGUE-HOSTINGER.md`](docs/DESPLIEGUE-HOSTINGER.md). Incluye la
+creación del ZIP compatible con Linux, configuración de hPanel, migraciones por
+SSH con la ruta de Node de Hostinger, verificaciones y reversión.
 
 La aplicación productiva utiliza Node.js 20, Express y `src/server.js` como
 archivo de entrada. Antes de activar cada versión en Hostinger, respalda la

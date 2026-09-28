@@ -734,3 +734,19 @@ npm run db:verify
 
 El artefacto de Hostinger incluye P24, P25 y el trabajo de recordatorios de
 consultas pendientes.
+
+## 27. Vistas privadas de pagos y profesionales
+
+`GET /api/commerce/orders/my` limita el histórico al comprador autenticado.
+La cancelación usa `DELETE /api/commerce/orders/:reference`, pero conserva la
+orden y el pago con estado `cancelled` para auditoría. Solamente admite órdenes
+manuales o PayPal pendientes; las capturas PayPal comprueban nuevamente el
+estado local antes de contactar al proveedor.
+
+`GET /api/scheduling/professional/appointments/pending` resuelve el perfil por
+el `user_id` autenticado y limita la consulta por `professional_id`. El menú no
+se muestra cuando el perfil no existe, está suspendido o sus credenciales no
+están verificadas.
+
+Los comprobantes descargados usan un nombre generado y una extensión derivada
+del MIME validado, junto con `X-Content-Type-Options: nosniff`.
