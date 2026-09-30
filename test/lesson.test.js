@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   youtubeUrl,
   driveUrl,
@@ -52,4 +54,17 @@ test('solo entrega la opción correcta durante la gestión del curso', () => {
   assert.equal(Object.hasOwn(studentView, 'correctOption'), false);
   assert.equal(studentView.options.some(option => Object.hasOwn(option, 'isCorrect')), false);
   assert.equal(managementView.correctOption, 2);
+});
+
+test('conserva y muestra las respuestas correctas de una lección completada sin permitir cambios', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/learning.js'), 'utf8');
+  const client = fs.readFileSync(path.join(__dirname, '../public/curso.js'), 'utf8');
+  const migration = fs.readFileSync(path.join(__dirname, '../scripts/migrate-p26.js'), 'utf8');
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS lesson_answer_reviews/);
+  assert.match(route, /INSERT INTO lesson_answer_reviews/);
+  assert.match(route, /FROM lesson_answer_reviews WHERE enrollment_id=\?/);
+  assert.match(route, /LESSON_ALREADY_COMPLETED/);
+  assert.match(client, /lesson\.completed && lesson\.reviewAnswers\?\.length/);
+  assert.match(client, /Tu respuesta correcta/);
+  assert.match(client, /input\.disabled = true/);
 });

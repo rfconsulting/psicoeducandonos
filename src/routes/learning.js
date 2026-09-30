@@ -276,9 +276,13 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
       }
     }
     let completedLessonIds = new Set();
+    let answerReviews = [];
     if (enrollment) {
       const [progress] = await pool.execute('SELECT lesson_id AS lessonId FROM lesson_progress WHERE enrollment_id=? AND completed_at IS NOT NULL', [enrollment.id]);
       completedLessonIds = new Set(progress.map(item => item.lessonId));
+      [answerReviews] = await pool.execute(`SELECT lesson_id AS lessonId,question_position AS questionPosition,question_text AS questionText,
+        selected_option_position AS selectedOptionPosition,selected_option_text AS selectedOptionText,answered_at AS answeredAt
+        FROM lesson_answer_reviews WHERE enrollment_id=? ORDER BY lesson_id,question_position`, [enrollment.id]);
     }
     let certificationRows = [];
     if (moduleIds.length) {
@@ -306,6 +310,14 @@ router.get('/courses/:courseId/structure', requireCapability(CAPABILITIES.LEARNI
       lessons: lessons.filter(lesson => lesson.moduleId === module.id).map(lesson => ({
         ...lesson,
         videoEmbedUrl: youtubeEmbedUrl(lesson.videoUrl),
+        reviewAnswers: completedLessonIds.has(lesson.id)
+          ? (answerReviews.filter(answer => answer.lessonId === lesson.id).length
+            ? answerReviews.filter(answer => answer.lessonId === lesson.id)
+            : questions.filter(question => question.lessonId === lesson.id).map(question => {
+              const correct = options.find(option => option.questionId === question.id && Boolean(option.isCorrect));
+              return { questionPosition: question.position, questionText: question.text, selectedOptionPosition: correct?.position, selectedOptionText: correct?.text };
+            }))
+          : [],
         questions: questions
           .filter(question => question.lessonId === lesson.id)
           .map(question => questionForClient(question, options, managing))
@@ -357,6 +369,8 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
     }
     const saved = await withTransaction(async connection => {
       await connection.execute('SELECT id FROM course_enrollments WHERE id=? FOR UPDATE', [rows[0].enrollmentId]);
+      const [[existingProgress]] = await connection.execute('SELECT completed_at AS completedAt FROM lesson_progress WHERE enrollment_id=? AND lesson_id=? LIMIT 1 FOR UPDATE', [rows[0].enrollmentId, lessonId]);
+      if (existingProgress?.completedAt) return 'already_completed';
       const [[prerequisites]] = await connection.execute(
         `SELECT COUNT(*) AS missing FROM lessons previous
          JOIN course_modules pm ON pm.id=previous.module_id
@@ -366,6 +380,18 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
         [rows[0].courseId, rows[0].modulePosition, rows[0].modulePosition, rows[0].lessonPosition, rows[0].enrollmentId]
       );
       if (Number(prerequisites.missing) > 0) return false;
+      const selectedIds = answers.map(answer => Number(answer.optionId));
+      const placeholders = selectedIds.map(() => '?').join(',');
+      const [reviewRows] = await connection.execute(
+        `SELECT q.position AS questionPosition,q.question_text AS questionText,o.position AS selectedOptionPosition,o.option_text AS selectedOptionText
+         FROM lesson_questions q JOIN lesson_question_options o ON o.question_id=q.id AND o.is_correct=TRUE
+         WHERE q.lesson_id=? AND o.id IN (${placeholders}) ORDER BY q.position`, [lessonId, ...selectedIds]
+      );
+      if (reviewRows.length !== 6) return false;
+      for (const review of reviewRows) await connection.execute(
+        `INSERT INTO lesson_answer_reviews (enrollment_id,lesson_id,question_position,question_text,selected_option_position,selected_option_text)
+         VALUES (?,?,?,?,?,?)`, [rows[0].enrollmentId, lessonId, review.questionPosition, review.questionText, review.selectedOptionPosition, review.selectedOptionText]
+      );
       await connection.execute(
         `INSERT INTO lesson_progress (enrollment_id,lesson_id,completed_at) VALUES (?,?,UTC_TIMESTAMP())
          ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at)`,
@@ -375,6 +401,7 @@ router.patch('/lessons/:lessonId/progress', requireRole('student'), verifyCsrf, 
       await audit(req, 'lesson_progress_updated', 'lesson', lessonId, { completed: true }, { db: connection, required: true });
       return true;
     });
+    if (saved === 'already_completed') return res.status(409).json({ error: 'Esta lección ya fue completada y sus respuestas están bloqueadas.', code: 'LESSON_ALREADY_COMPLETED' });
     if (!saved) return res.status(409).json({ error: 'Completa la lección anterior antes de continuar.', code: 'LESSON_PREREQUISITE_REQUIRED' });
     return res.json({ message: '¡Todas las respuestas son correctas! Lección completada.', completed: true });
   } catch (error) { return next(error); }

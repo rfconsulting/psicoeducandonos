@@ -44,8 +44,23 @@ function renderQuiz(lesson, enrollment, onCompleted) {
   const heading = document.createElement('h3');
   heading.textContent = 'Comprueba los puntos clave';
   const intro = document.createElement('p');
-  intro.textContent = 'Selecciona una respuesta por pregunta. No tiene puntuación: puedes revisar e intentarlo nuevamente.';
+  intro.textContent = lesson.completed ? 'Estas son las respuestas que marcaste correctamente al completar la lección.' : 'Selecciona una respuesta por pregunta. No tiene puntuación: puedes revisar e intentarlo nuevamente.';
   form.append(heading, intro);
+
+  if (lesson.completed && lesson.reviewAnswers?.length) {
+    form.classList.add('lesson-quiz-review');
+    lesson.reviewAnswers.forEach(answer => {
+      const fieldset = document.createElement('fieldset');
+      const legend = document.createElement('legend');
+      legend.textContent = `${answer.questionPosition}. ${answer.questionText}`;
+      const selected = document.createElement('p');
+      selected.className = 'lesson-review-correct';
+      selected.textContent = `✓ Tu respuesta correcta: ${answer.selectedOptionText}`;
+      fieldset.append(legend, selected);
+      form.appendChild(fieldset);
+    });
+    return form;
+  }
 
   lesson.questions.forEach(question => {
     const fieldset = document.createElement('fieldset');
@@ -60,6 +75,7 @@ function renderQuiz(lesson, enrollment, onCompleted) {
       radio.name = `question-${question.id}`;
       radio.value = option.id;
       radio.required = true;
+      radio.disabled = lesson.completed;
       label.append(radio, document.createTextNode(option.text));
       fieldset.appendChild(label);
     });
@@ -94,6 +110,12 @@ function renderQuiz(lesson, enrollment, onCompleted) {
       feedback.textContent = data.message;
       button.textContent = 'Lección completada ✓';
       lesson.completed = true;
+      lesson.reviewAnswers = answers.map((answer, index) => {
+        const question = lesson.questions[index];
+        const selected = question.options.find(option => option.id === answer.optionId);
+        return { questionPosition: question.position, questionText: question.text, selectedOptionPosition: selected?.position, selectedOptionText: selected?.text };
+      });
+      form.querySelectorAll('input').forEach(input => { input.disabled = true; });
       onCompleted();
       if (window.NotificationModal) {
         window.NotificationModal.show({
