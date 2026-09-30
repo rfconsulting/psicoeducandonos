@@ -14,6 +14,23 @@ test('los estilos usan la paleta base del manual de marca', () => {
   }
 });
 
+test('el panel usa grafito, blanco hueso y un único acento azul', () => {
+  const css = fs.readFileSync(path.join(root, 'public', 'auth.css'), 'utf8');
+  assert.match(css, /dashboard:has\(\.dashboard-shell\) \.dashboard-sidebar\{background:var\(--ink\)/);
+  assert.match(css, /dashboard main\.dashboard-content\{background:var\(--cream\)\}/);
+  assert.match(css, /dashboard-avatar\{border-color:var\(--coral\)/);
+  assert.match(css, /welcome::before[\s\S]*content:";"/);
+  assert.match(css, /border-color:rgba\(11,145,234,\.18\)/);
+});
+
+test('la jerarquía tipográfica declara Creative Display con respaldo Literata', () => {
+  for (const file of ['styles.css', 'auth.css']) {
+    const css = fs.readFileSync(path.join(root, 'public', file), 'utf8');
+    assert.match(css, /font-family:"Creative Display",Literata,serif!important/);
+    assert.match(css, /body\{background:var\(--cream\);font-family:Literata,serif\}/);
+  }
+});
+
 test('el wordmark oficial se aplica sin colorear el punto y coma', () => {
   const asset = path.join(root, 'public', 'assets', 'logo.png');
   assert.equal(fs.existsSync(asset), true);

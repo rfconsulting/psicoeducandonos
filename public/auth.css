@@ -3534,3 +3534,21 @@ body :is(h1, h2, h3, h4, .article-summary) {
 @media(max-width:480px){
     .dashboard-sidebar .dashboard-nav{grid-template-columns:1fr}
 }
+
+/* Alineación final con el manual de marca: base monocromática + un acento azul. */
+body{background:var(--cream);font-family:Literata,serif}
+body :is(h1,h2,h3,h4,.article-summary){font-family:"Creative Display",Literata,serif!important}
+body :is(button,input,select,textarea,.nav-item,.small-button,.submit-button){font-family:Literata,serif}
+.dashboard:has(.dashboard-shell) .dashboard-sidebar{background:var(--ink);color:var(--cream)}
+.dashboard:has(.dashboard-shell) .dashboard-sidebar .dashboard-profile{border-bottom-color:rgba(244,244,244,.2)}
+.dashboard:has(.dashboard-shell) .dashboard-sidebar .dashboard-profile span,
+.dashboard:has(.dashboard-shell) .dashboard-sidebar .nav-item{color:rgba(244,244,244,.82)}
+.dashboard:has(.dashboard-shell) .dashboard-sidebar .sidebar-label,
+.dashboard:has(.dashboard-shell) .dashboard-sidebar .nav-group-title{color:var(--coral)}
+.dashboard:has(.dashboard-shell) .dashboard-avatar{border-color:var(--coral);background:var(--cream);color:var(--ink);font-family:"Creative Display",Literata,serif}
+.dashboard main.dashboard-content{background:var(--cream)}
+.dashboard-panel#overview-panel>.welcome::after,
+.dashboard-panel#available-panel>.welcome::after{border-color:rgba(11,145,234,.18)}
+.dashboard-panel#overview-panel>.welcome::before,
+.dashboard-panel#available-panel>.welcome::before{content:";";position:absolute;right:58px;bottom:-16px;z-index:1;color:rgba(11,145,234,.34);font-family:"Creative Display",Literata,serif;font-size:142px;line-height:1}
+.nav-group{border-top-color:rgba(244,244,244,.2)}

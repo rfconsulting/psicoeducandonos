@@ -1649,3 +1649,8 @@ body :is(h1, h2, h3, h4, .large-copy, .quote p, .event-date strong) {
         justify-content: center
     }
 }
+
+/* Alineación final con el manual de marca. */
+body{background:var(--cream);font-family:Literata,serif}
+body :is(h1,h2,h3,h4,.article-summary){font-family:"Creative Display",Literata,serif!important}
+body :is(button,input,select,textarea){font-family:Literata,serif}
