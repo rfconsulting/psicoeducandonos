@@ -45,6 +45,18 @@ test('el dashboard exige validar credenciales antes de publicar agenda', () => {
   assert.match(migration, /credential_status ENUM\('pending','verified','rejected'\)/);
 });
 
+test('el profesional puede retirar sus propios servicios sin borrar el historial', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/scheduling.js'), 'utf8');
+  const dashboard = fs.readFileSync(path.join(__dirname, '../public/dashboard.js'), 'utf8');
+  assert.match(route, /router\.patch\('\/professional\/services\/:serviceId\/status', requireAuth, verifyCsrf/);
+  assert.match(route, /WHERE s\.id=\? AND p\.user_id=\?/);
+  assert.match(route, /professional_service_retired_by_owner/);
+  assert.doesNotMatch(route, /DELETE FROM professional_services/);
+  assert.match(dashboard, /function renderProfessionalServices/);
+  assert.match(dashboard, /Retirar servicio/);
+  assert.match(dashboard, /Las citas y pagos anteriores se conservarán/);
+});
+
 test('valida zona horaria y rangos de minutos', () => {
   assert.equal(validTimezone('America/Panama'), true);
   assert.equal(validTimezone('Planeta/Inexistente'), false);

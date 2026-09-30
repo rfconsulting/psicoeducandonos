@@ -45,16 +45,15 @@ PUT /api/operations/professionals/:professionalId/authorizations
 
 La escritura requiere capacidad de gestión de agenda y token CSRF.
 
-## Solicitudes de consulta
+## Solicitudes de consulta históricas
 
-El estudiante indica tipo de servicio, modalidad, formato de participantes,
-categoría general del motivo, zona horaria y profesional preferido. Los
-indicadores de riesgo llevan la solicitud a `safety_review`; este flujo no
-sustituye servicios de emergencia ni realiza evaluación clínica automática.
+El formulario general fue retirado. Las consultas nuevas se agendan desde la
+tarjeta de un profesional, seleccionando uno de sus servicios y un horario
+disponible. Los registros anteriores se conservan para trazabilidad.
 
 ```text
-POST /api/operations/service-requests
-GET  /api/operations/service-requests/my
+POST /api/operations/service-requests    (retirado; responde 410)
+GET  /api/operations/service-requests/my (consulta histórica)
 ```
 
 ## Pagos y comprobantes

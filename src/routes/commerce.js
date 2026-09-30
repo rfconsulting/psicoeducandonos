@@ -109,7 +109,7 @@ router.post('/consultation-holds/:holdId/checkout', requireRole('student'), veri
         WHERE a.hold_reference=? AND a.client_user_id=? LIMIT 1 FOR UPDATE`, [holdId, req.authUser.id]);
       if (previous) return { reference: previous.reference, checkoutUrl: previous.checkoutUrl, reused: true };
       const [[offer]] = await connection.execute(`SELECT h.id AS holdId,h.professional_id AS professionalId,h.service_id AS serviceId,h.start_at AS startAt,h.end_at AS endAt,h.expires_at AS expiresAt,
-        s.name,p.id AS productId,pp.currency,pp.amount_minor AS amountMinor,prof.timezone
+        s.name,p.id AS productId,pp.currency,pp.amount_minor AS amountMinor,prof.timezone,prof.user_id AS professionalUserId
         FROM appointment_holds h JOIN professional_services s ON s.id=h.service_id AND s.active=TRUE
         JOIN professional_profiles prof ON prof.id=h.professional_id AND prof.status='active' AND prof.credential_status='verified'
         JOIN products p ON p.service_id=s.id AND p.active=TRUE JOIN product_prices pp ON pp.product_id=p.id AND pp.active=TRUE
@@ -127,6 +127,14 @@ router.post('/consultation-holds/:holdId/checkout', requireRole('student'), veri
         (public_id,hold_reference,professional_id,service_id,client_user_id,start_at,end_at,timezone,status,order_id,payment_expires_at)
         VALUES (?,?,?,?,?,?,?,?, 'pending_payment',?,?)`, [appointmentReference, holdId, offer.professionalId, offer.serviceId, req.authUser.id, offer.startAt, offer.endAt, offer.timezone, created.insertId, offer.expiresAt]);
       await connection.execute('INSERT INTO appointment_events (appointment_id,actor_user_id,event_type,new_start_at) VALUES (?,?,\'payment_started\',?)', [appointment.insertId, req.authUser.id, offer.startAt]);
+      await createNotification({
+        userId: offer.professionalUserId,
+        type: 'professional_consultation_scheduled',
+        title: 'Nueva consulta agendada',
+        message: `${req.authUser.full_name} agendó ${offer.name} para ${new Date(offer.startAt).toISOString()}. Estado: pendiente de pago.`,
+        actionUrl: '/dashboard.html#professional-consultations-section',
+        db: connection
+      });
       await connection.execute('DELETE FROM appointment_holds WHERE id=?', [holdId]);
       await connection.execute("UPDATE orders SET status='processing' WHERE id=?", [created.insertId]);
       await audit(req, 'consultation_checkout_created', 'appointment', appointment.insertId, { orderId: created.insertId, currency: offer.currency, amountMinor: offer.amountMinor }, { db: connection, required: true });

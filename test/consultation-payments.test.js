@@ -20,6 +20,13 @@ test('hold se convierte atómicamente en cita pendiente y orden', () => {
   assert.match(migration, /uq_appointment_hold/);
 });
 
+test('el checkout notifica únicamente al profesional de la consulta', () => {
+  assert.match(commerce, /prof\.user_id AS professionalUserId/);
+  assert.match(commerce, /userId: offer\.professionalUserId/);
+  assert.match(commerce, /type: 'professional_consultation_scheduled'/);
+  assert.match(commerce, /dashboard\.html#professional-consultations-section/);
+});
+
 test('solo webhook confirmado entrega cita vigente', () => {
   assert.match(commerce, /appointment\?\.status === 'pending_payment'/);
   assert.match(commerce, /paymentExpiresAt/);

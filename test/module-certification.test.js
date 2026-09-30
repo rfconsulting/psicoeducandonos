@@ -33,3 +33,13 @@ test('la certificación está asociada a módulo y conserva observaciones visibl
   assert.match(route, /teacher_observation/);
   assert.match(route, /refreshEnrollmentCompletion/);
 });
+
+test('el profesor revisa cada una de las tres áreas y el checklist general no se muestra', () => {
+  const root = path.resolve(__dirname, '..');
+  const dashboard = fs.readFileSync(path.join(root, 'public', 'dashboard.js'), 'utf8');
+  const courseView = dashboard.slice(dashboard.indexOf('function buildAcademicCourse'), dashboard.indexOf('function buildLessonQuestions'));
+  assert.match(courseView, /buildModuleCertificationReview/);
+  assert.match(dashboard, /Object\.keys\(certificationAreaLabels\)/);
+  assert.match(dashboard, /`\$\{area\}Certified`/);
+  assert.doesNotMatch(courseView, /saveCourseSupport|Guardar acompañamiento/);
+});

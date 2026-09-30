@@ -94,7 +94,32 @@ router.get('/professional/appointments/pending', requireAuth, async (req, res, n
       LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
       WHERE a.professional_id=? AND a.status IN ('pending_payment','confirmed')
       ORDER BY a.start_at ASC LIMIT 200`, [professional.id]);
-    return res.json({ professional: { id: professional.id, timezone: professional.timezone }, appointments });
+    const [services] = await pool.execute(`SELECT id,name,description,duration_minutes AS durationMinutes,active
+      FROM professional_services WHERE professional_id=? ORDER BY active DESC,name`, [professional.id]);
+    return res.json({ professional: { id: professional.id, timezone: professional.timezone }, appointments,
+      services: services.map(service => ({ ...service, active: Boolean(service.active) })) });
+  } catch (error) { return next(error); }
+});
+
+router.patch('/professional/services/:serviceId/status', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const serviceId = Number(req.params.serviceId);
+    if (!Number.isSafeInteger(serviceId) || serviceId < 1 || typeof req.body.active !== 'boolean') return res.status(422).json({ error: 'Estado del servicio inválido.' });
+    const result = await withTransaction(async connection => {
+      const [[service]] = await connection.execute(`SELECT s.id,s.active,s.service_type AS serviceType,p.id AS professionalId,
+        p.professional_type AS professionalType,p.status AS professionalStatus,p.credential_status AS credentialStatus
+        FROM professional_services s JOIN professional_profiles p ON p.id=s.professional_id
+        WHERE s.id=? AND p.user_id=? LIMIT 1 FOR UPDATE`, [serviceId, req.authUser.id]);
+      if (!service) return 'missing';
+      if (req.body.active && (service.professionalStatus !== 'active' || service.credentialStatus !== 'verified' || !professionalCanOffer(service.professionalType, service.serviceType))) return 'unavailable';
+      if (Boolean(service.active) === req.body.active) return 'unchanged';
+      await connection.execute('UPDATE professional_services SET active=? WHERE id=?', [req.body.active, serviceId]);
+      await audit(req, req.body.active ? 'professional_service_enabled_by_owner' : 'professional_service_retired_by_owner', 'professional_service', serviceId, { professionalId: service.professionalId }, { db: connection, required: true });
+      return 'updated';
+    });
+    if (result === 'missing') return res.status(404).json({ error: 'Servicio no encontrado en tu perfil profesional.' });
+    if (result === 'unavailable') return res.status(409).json({ error: 'Tu perfil debe permanecer verificado y habilitado para reactivar este servicio.' });
+    return res.json({ message: req.body.active ? 'Servicio reactivado.' : 'Servicio retirado del directorio.' });
   } catch (error) { return next(error); }
 });
 

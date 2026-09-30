@@ -6,7 +6,6 @@ const { CAPABILITIES } = require('../constants/access');
 const withTransaction = require('../services/transaction');
 const audit = require('../services/audit');
 const { createNotification, emailNotification } = require('../services/notifications');
-const { validTimezone } = require('../services/scheduling');
 
 const router = express.Router();
 const text = (value, max) => String(value || '').trim().slice(0, max);
@@ -82,29 +81,7 @@ router.put('/professionals/:professionalId/authorizations', requireCapability(CA
 });
 
 router.post('/service-requests', requireRole('student'), verifyCsrf, async (req, res, next) => {
-  try {
-    const serviceType = text(req.body.serviceType, 64); const deliveryMode = String(req.body.deliveryMode || '');
-    const participantFormat = String(req.body.participantFormat || ''); const reasonCategory = String(req.body.reasonCategory || '');
-    const timezone = text(req.body.timezone, 64); const preferredProfessionalId = req.body.preferredProfessionalId ? Number(req.body.preferredProfessionalId) : null;
-    if (!SERVICE_CODE.test(serviceType) || !['online','in_person'].includes(deliveryMode) || !['individual','couple','family','group'].includes(participantFormat) ||
-      !['anxiety_panic','grief','family_conflict','stress','couple_problems','parent_guidance','other'].includes(reasonCategory) || !validTimezone(timezone) ||
-      (preferredProfessionalId !== null && (!Number.isSafeInteger(preferredProfessionalId) || preferredProfessionalId < 1))) return res.status(422).json({ error: 'Revisa los datos de la solicitud.' });
-    const safety = req.body.emergencyCurrent === true || req.body.selfOrOthersRisk === true;
-    const reference = crypto.randomUUID();
-    const id = await withTransaction(async connection => {
-      const [[type]] = await connection.execute('SELECT code FROM service_type_catalog WHERE code=? AND active=TRUE LIMIT 1', [serviceType]);
-      if (!type) return null;
-      const [created] = await connection.execute(`INSERT INTO service_requests
-        (public_id,user_id,service_type,delivery_mode,participant_format,reason_category,timezone,preferred_professional_id,emergency_current,self_or_others_risk,physical_symptoms,notes,status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [reference, req.authUser.id, serviceType, deliveryMode, participantFormat, reasonCategory, timezone,
-        preferredProfessionalId, safety && req.body.emergencyCurrent === true, safety && req.body.selfOrOthersRisk === true, req.body.physicalSymptoms === true,
-        text(req.body.notes, 2000) || null, safety ? 'safety_review' : 'pending_scheduling']);
-      await audit(req, 'service_request_created', 'service_request', created.insertId, { serviceType, safetyReview: safety }, { db: connection, required: true });
-      return created.insertId;
-    });
-    if (!id) return res.status(422).json({ error: 'Tipo de servicio no disponible.' });
-    return res.status(201).json({ message: safety ? 'Solicitud recibida para revisión prioritaria. Si existe peligro inmediato, contacta emergencias locales.' : 'Solicitud de consulta recibida.', reference });
-  } catch (error) { return next(error); }
+  return res.status(410).json({ error: 'Este formulario fue retirado. Selecciona un profesional, un servicio y un horario disponible.' });
 });
 
 router.get('/service-requests/my', requireRole('student'), async (req, res, next) => {
@@ -144,7 +121,7 @@ router.post('/consultation-holds/:holdId/manual-order', requireRole('student'), 
     if (!/^[0-9a-f-]{36}$/i.test(holdId) || !Number.isSafeInteger(priceId)) return res.status(422).json({ error: 'Reserva o precio inválido.' });
     const order = await withTransaction(async connection => {
       const [[offer]] = await connection.execute(`SELECT h.professional_id AS professionalId,h.service_id AS serviceId,h.start_at AS startAt,h.end_at AS endAt,h.expires_at AS expiresAt,
-        h.service_request_id AS serviceRequestId,s.name,p.id AS productId,pp.currency,pp.amount_minor AS amountMinor,prof.timezone
+        h.service_request_id AS serviceRequestId,s.name,p.id AS productId,pp.currency,pp.amount_minor AS amountMinor,prof.timezone,prof.user_id AS professionalUserId
         FROM appointment_holds h JOIN professional_services s ON s.id=h.service_id AND s.active=TRUE JOIN professional_profiles prof ON prof.id=h.professional_id
         JOIN products p ON p.service_id=s.id AND p.active=TRUE JOIN product_prices pp ON pp.product_id=p.id AND pp.active=TRUE
         WHERE h.id=? AND h.client_user_id=? AND h.expires_at>UTC_TIMESTAMP() AND pp.id=? LIMIT 1 FOR UPDATE`, [holdId, req.authUser.id, priceId]);
@@ -156,6 +133,14 @@ router.post('/consultation-holds/:holdId/manual-order', requireRole('student'), 
         [created.insertId, offer.currency, offer.amountMinor, offer.currency, offer.amountMinor]);
       await connection.execute(`INSERT INTO appointments (public_id,hold_reference,professional_id,service_id,service_request_id,client_user_id,start_at,end_at,timezone,status,order_id,payment_expires_at)
         VALUES (?,?,?,?,?,?,?,?,?,'pending_payment',?,?)`, [appointmentReference, holdId, offer.professionalId, offer.serviceId, offer.serviceRequestId, req.authUser.id, offer.startAt, offer.endAt, offer.timezone, created.insertId, offer.expiresAt]);
+      await createNotification({
+        userId: offer.professionalUserId,
+        type: 'professional_consultation_scheduled',
+        title: 'Nueva consulta agendada',
+        message: `${req.authUser.full_name} agendó ${offer.name} para ${new Date(offer.startAt).toISOString()}. Estado: pendiente de pago.`,
+        actionUrl: '/dashboard.html#professional-consultations-section',
+        db: connection
+      });
       await connection.execute('DELETE FROM appointment_holds WHERE id=?', [holdId]);
       await audit(req, 'manual_consultation_order_created', 'order', created.insertId, { serviceId: offer.serviceId }, { db: connection, required: true });
       return { reference, appointmentReference, currency: offer.currency, amountMinor: offer.amountMinor };

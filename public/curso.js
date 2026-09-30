@@ -2,6 +2,7 @@ let csrfToken = '';
 let courseModules = [];
 let lessonSequence = [];
 let selectedLessonId = null;
+let selectedCertificationModuleId = null;
 let currentEnrollment = null;
 
 async function request(url, options = {}) {
@@ -118,6 +119,7 @@ function selectLesson(lessonId, moveFocus = true) {
   const lesson = lessonSequence.find(item => item.id === lessonId);
   if (!lesson || lesson.locked) return;
   selectedLessonId = lesson.id;
+  selectedCertificationModuleId = null;
   history.replaceState(null, '', `#leccion-${lesson.id}`);
   renderOutline();
   renderSelectedLesson();
@@ -125,6 +127,11 @@ function selectLesson(lessonId, moveFocus = true) {
   document.querySelector('#course-outline-toggle').setAttribute('aria-expanded', 'false');
   if (moveFocus) document.querySelector('#active-lesson-title')?.focus();
 }
+
+function moduleCertificationReady(module){return module.lessons.length>0&&module.lessons.every(lesson=>lesson.completed);}
+function moduleCertificationApproved(module){return module.certification.length===3&&module.certification.every(area=>area.certified);}
+function moduleCertificationState(module){if(moduleCertificationApproved(module))return'✓ Módulo aprobado';if(module.certification.some(area=>area.answerStatus==='changes_requested'))return'Requiere correcciones';if(module.certification.every(area=>area.answerStatus==='submitted'||area.certified))return'En revisión';return'Disponible';}
+function selectModuleCertification(moduleId,moveFocus=true){const module=courseModules.find(item=>item.id===moduleId);if(!module||module.certification.length!==3||!moduleCertificationReady(module))return;selectedLessonId=null;selectedCertificationModuleId=module.id;history.replaceState(null,'',`#certificacion-modulo-${module.id}`);renderOutline();renderModuleClosure(module);document.querySelector('#course-outline').classList.remove('open');document.querySelector('#course-outline-toggle').setAttribute('aria-expanded','false');if(moveFocus)document.querySelector('#active-lesson-title')?.focus();}
 
 function renderOutline() {
   const tree = document.querySelector('#course-outline-tree');
@@ -155,6 +162,7 @@ function renderOutline() {
       item.appendChild(button);
       list.appendChild(item);
     });
+    if(module.certification.length===3){const item=document.createElement('li');const button=document.createElement('button');const ready=moduleCertificationReady(module);const approved=moduleCertificationApproved(module);button.type='button';button.className=`outline-lesson module-closure-step${module.id===selectedCertificationModuleId?' active':''}${approved?' completed':''}${!ready?' locked':''}`;button.disabled=!ready;if(module.id===selectedCertificationModuleId)button.setAttribute('aria-current','step');const title=document.createElement('span');title.textContent='Cierre y certificación del módulo';const state=document.createElement('small');state.textContent=ready?moduleCertificationState(module):'🔒 Completa las lecciones';button.append(title,state);button.addEventListener('click',()=>selectModuleCertification(module.id));item.appendChild(button);list.appendChild(item);}
     group.append(heading, list);
     tree.appendChild(group);
   });
@@ -162,6 +170,9 @@ function renderOutline() {
 
 function lessonNavigation(lesson) {
   const index = lessonSequence.findIndex(item => item.id === lesson.id);
+  const module=courseModules.find(item=>item.id===lesson.moduleId);
+  const isLastInModule=module?.lessons[module.lessons.length-1]?.id===lesson.id;
+  const hasClosure=isLastInModule&&module.certification.length===3;
   const navigation = document.createElement('nav');
   navigation.className = 'lesson-navigation';
   navigation.setAttribute('aria-label', 'Navegación entre lecciones');
@@ -176,9 +187,9 @@ function lessonNavigation(lesson) {
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'small-button';
-  next.textContent = 'Siguiente lección →';
-  next.disabled = index >= lessonSequence.length - 1 || Boolean(lessonSequence[index + 1]?.locked);
-  next.addEventListener('click', () => selectLesson(lessonSequence[index + 1]?.id));
+  next.textContent = hasClosure ? 'Ir al cierre modular →' : 'Siguiente lección →';
+  next.disabled = hasClosure ? !moduleCertificationReady(module) : index >= lessonSequence.length - 1 || Boolean(lessonSequence[index + 1]?.locked);
+  next.addEventListener('click', () => hasClosure ? selectModuleCertification(module.id) : selectLesson(lessonSequence[index + 1]?.id));
   navigation.append(previous, position, next);
   return navigation;
 }
@@ -186,8 +197,10 @@ function lessonNavigation(lesson) {
 const certificationLabels={supervision:'Supervisión',practice:'Práctica',personal_work:'Trabajo personal'};
 function renderModuleCertification(module){
   const section=document.createElement('section');section.className='lesson-quiz module-certification';const heading=document.createElement('h3');heading.textContent='Certificación del módulo';const intro=document.createElement('p');intro.textContent='Responde sobre tu práctica, supervisión y trabajo personal. El profesor revisará cada respuesta.';section.append(heading,intro);
-  module.certification.forEach(item=>{const form=document.createElement('form');form.className='certification-answer-form';const label=document.createElement('label');label.textContent=certificationLabels[item.area];const question=document.createElement('p');question.className='certification-question';question.textContent=item.question;const textarea=document.createElement('textarea');textarea.name='answer';textarea.rows=5;textarea.maxLength=10000;textarea.required=true;textarea.value=item.answer||'';const state=document.createElement('p');state.className=item.certified?'form-message success':'form-message';state.textContent=item.certified?'✓ Certificado por el profesor':item.answerStatus==='changes_requested'?'Requiere correcciones':item.answerStatus==='submitted'?'Enviado para revisión':'Pendiente de envío';const observation=document.createElement('p');observation.className='certification-observation';observation.textContent=item.observation?`Observación del profesor: ${item.observation}`:'';const button=document.createElement('button');button.type='submit';button.className='small-button';button.textContent=item.answer?'Actualizar y enviar':'Enviar respuesta';button.disabled=item.certified;form.append(label,question,textarea,state,observation,button);form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;try{const data=await request(`/api/module-certification/modules/${module.id}/answer`,{method:'PATCH',body:JSON.stringify({area:item.area,answer:textarea.value})});item.answer=textarea.value;item.answerStatus='submitted';item.certified=false;state.className='form-message success';state.textContent=data.message;}catch(error){state.className='form-message error';state.textContent=error.message;button.disabled=false;}});section.appendChild(form);});return section;
+  module.certification.forEach(item=>{const form=document.createElement('form');form.className='certification-answer-form';const label=document.createElement('label');label.textContent=certificationLabels[item.area];const question=document.createElement('p');question.className='certification-question';question.textContent=item.question;const textarea=document.createElement('textarea');textarea.name='answer';textarea.rows=5;textarea.maxLength=10000;textarea.required=true;textarea.value=item.answer||'';textarea.disabled=item.certified;const state=document.createElement('p');state.className=item.certified?'form-message success':'form-message';state.textContent=item.certified?'✓ Certificado por el profesor':item.answerStatus==='changes_requested'?'Requiere correcciones':item.answerStatus==='submitted'?'Enviado para revisión':'Pendiente de envío';const observation=document.createElement('p');observation.className='certification-observation';observation.textContent=item.observation?`Observación del profesor: ${item.observation}`:'';const button=document.createElement('button');button.type='submit';button.className='small-button';button.textContent=item.answer?'Actualizar y enviar':'Enviar respuesta';button.disabled=item.certified;form.append(label,question,textarea,state,observation,button);form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;try{const data=await request(`/api/module-certification/modules/${module.id}/answer`,{method:'PATCH',body:JSON.stringify({area:item.area,answer:textarea.value})});item.answer=textarea.value;item.answerStatus='submitted';item.certified=false;state.className='form-message success';state.textContent=data.message;button.textContent='Actualizar y enviar';button.disabled=false;}catch(error){state.className='form-message error';state.textContent=error.message;button.disabled=false;}});section.appendChild(form);});return section;
 }
+
+function renderModuleClosure(module){const workspace=document.querySelector('#lesson-workspace');workspace.textContent='';workspace.className='lesson-workspace module-closure-workspace';const eyebrow=document.createElement('span');eyebrow.className='lesson-eyebrow';eyebrow.textContent=module.title;const title=document.createElement('h2');title.id='active-lesson-title';title.tabIndex=-1;title.textContent='Cierre y certificación del módulo';const description=document.createElement('p');description.className='active-lesson-description';description.textContent='Comparte tus impresiones sobre la práctica, la supervisión y el trabajo personal realizados en este módulo.';workspace.append(eyebrow,title,description,renderModuleCertification(module));const navigation=document.createElement('nav');navigation.className='lesson-navigation';navigation.setAttribute('aria-label','Navegación del cierre modular');const previous=document.createElement('button');previous.type='button';previous.className='small-button';previous.textContent='← Última lección';previous.addEventListener('click',()=>selectLesson(module.lessons[module.lessons.length-1]?.id));const position=document.createElement('span');position.textContent=moduleCertificationApproved(module)?'Módulo aprobado':'Cierre modular';const lastIndex=lessonSequence.findIndex(lesson=>lesson.id===module.lessons[module.lessons.length-1]?.id);const nextLesson=lessonSequence[lastIndex+1];const next=document.createElement('button');next.type='button';next.className='small-button';next.textContent='Siguiente módulo →';next.disabled=!nextLesson||Boolean(nextLesson.locked);next.addEventListener('click',()=>selectLesson(nextLesson?.id));navigation.append(previous,position,next);workspace.appendChild(navigation);}
 
 function renderSelectedLesson() {
   const workspace = document.querySelector('#lesson-workspace');
@@ -248,7 +261,6 @@ function renderSelectedLesson() {
       }
     }));
   }
-  if(module?.certification?.length===3&&module.lessons[module.lessons.length-1]?.id===lesson.id)workspace.appendChild(renderModuleCertification(module));
   workspace.appendChild(lessonNavigation(lesson));
 }
 
@@ -288,9 +300,14 @@ async function init() {
     currentEnrollment = enrollment;
     courseModules = modules;
     lessonSequence = modules.flatMap(module => module.lessons);
+    const certificationHashId=Number(location.hash.replace('#certificacion-modulo-',''));
+    const hashModule=courseModules.find(module=>module.id===certificationHashId&&module.certification.length===3&&moduleCertificationReady(module));
+    if(hashModule){selectModuleCertification(hashModule.id,false);return;}
     const hashId = Number(location.hash.replace('#leccion-', ''));
     const hashLesson = lessonSequence.find(lesson => lesson.id === hashId && !lesson.locked);
-    selectedLessonId = hashLesson?.id || lessonSequence.find(lesson => !lesson.completed)?.id || lessonSequence[0]?.id || null;
+    const nextStep=courseModules.flatMap(module=>[...module.lessons,{moduleClosure:true,module}]).find(step=>step.moduleClosure?moduleCertificationReady(step.module)&&step.module.certification.some(area=>!area.answer||area.answerStatus==='changes_requested'):!step.completed&&!step.locked);
+    selectedLessonId = hashLesson?.id || (!nextStep?.moduleClosure?nextStep?.id:null) || lessonSequence[0]?.id || null;
+    if(!hashLesson&&nextStep?.moduleClosure){selectModuleCertification(nextStep.module.id,false);return;}
     renderOutline();
     renderSelectedLesson();
   } catch (error) {

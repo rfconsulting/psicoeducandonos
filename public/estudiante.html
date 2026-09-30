@@ -8,9 +8,9 @@
   <link rel="stylesheet" href="auth.css"><script src="estudiante.js" defer></script>
 </head>
 <body class="dashboard">
-  <header><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a><div class="dashboard-actions"><span id="session-email"></span><button id="logout" type="button">Cerrar sesión</button></div></header>
+  <header><a class="brand" href="/"><img src="assets/logo.png" alt=""><span>Psicoeducándonos</span></a><button class="dashboard-menu-toggle" id="dashboard-menu-toggle" type="button" aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Abrir menú"><span></span><span></span><span></span></button><div class="dashboard-actions"><span id="session-email"></span><button id="logout" type="button">Cerrar sesión</button></div></header>
   <div class="dashboard-shell">
-    <aside class="dashboard-sidebar" aria-label="Menú del espacio estudiantil">
+    <aside class="dashboard-sidebar" id="dashboard-sidebar" aria-label="Menú del espacio estudiantil">
       <div class="dashboard-profile">
         <div class="dashboard-avatar" id="student-avatar" aria-hidden="true">E</div>
         <strong id="student-sidebar-name">Estudiante</strong>
@@ -59,12 +59,10 @@
       </section>
       <section class="content-section dashboard-panel" id="consultations-panel" hidden>
         <div class="content-heading"><div><span>Acompañamiento</span><h2>Agendar consulta</h2></div><p>Elige servicio, fecha y un horario disponible.</p></div>
-        <form class="editor-form" id="service-request-form"><h3>Solicitar orientación</h3><p>Indica el tipo de atención que buscas. Esta solicitud no sustituye servicios de emergencia.</p><div class="form-grid"><div class="field"><label>Tipo de consulta o servicio<select name="serviceType" id="service-request-type" required></select></label></div><div class="field"><label>Modalidad<select name="deliveryMode"><option value="online">En línea</option><option value="in_person">Presencial</option></select></label></div><div class="field"><label>Formato<select name="participantFormat"><option value="individual">Individual</option><option value="couple">Pareja</option><option value="family">Familiar</option><option value="group">Grupal</option></select></label></div><div class="field"><label>Motivo principal<select name="reasonCategory"><option value="anxiety_panic">Ansiedad o pánico</option><option value="grief">Duelo</option><option value="family_conflict">Conflicto familiar</option><option value="stress">Estrés</option><option value="couple_problems">Problemas de pareja</option><option value="parent_guidance">Orientación a padres</option><option value="other">Otro</option></select></label></div><div class="field"><label>Zona horaria<input name="timezone" value="America/Panama" maxlength="64" required></label></div></div><div class="field"><label>Información adicional<textarea name="notes" maxlength="2000"></textarea></label></div><div class="form-grid"><label><input type="checkbox" name="emergencyCurrent"> Existe una emergencia actual</label><label><input type="checkbox" name="selfOrOthersRisk"> Existe riesgo para mí u otras personas</label><label><input type="checkbox" name="physicalSymptoms"> Presento síntomas físicos importantes</label></div><button class="small-button" type="submit">Enviar solicitud</button><p class="form-message" role="alert"></p></form>
-        <div class="content-heading"><div><span>Solicitudes</span><h3>Mis solicitudes</h3></div></div><div class="content-list" id="service-requests-list"></div>
         <div class="professional-filters"><label class="field" for="professional-directory-search">Buscar profesional o especialidad<input id="professional-directory-search" type="search" placeholder="Nombre, especialidad o servicio" maxlength="120"></label><label class="field" for="professional-directory-type">Profesión<select id="professional-directory-type"><option value="">Todas</option><option value="psychologist">Psicología</option><option value="psychiatrist">Psiquiatría</option><option value="psychopedagogue">Psicopedagogía</option><option value="counselor">Consejería cristiana</option></select></label></div>
         <p class="form-message" id="consultations-message" role="alert"></p><div class="professional-directory" id="consultations-list" aria-live="polite"></div>
         <div class="content-heading"><div><span>Seguimiento</span><h3>Mis consultas</h3></div></div><div class="content-list" id="my-consultations-list"></div>
-        <section class="editor-form"><h3>Suscripciones</h3><div id="subscription-plans"></div><div id="my-subscriptions"></div></section>
+        <section class="editor-form consultation-subscriptions"><h3>Suscripciones</h3><div id="subscription-plans"></div><div id="my-subscriptions"></div></section>
       </section>
       <section class="content-section dashboard-panel" id="payments-panel" hidden>
         <div class="content-heading"><div><span>Cuenta</span><h2>Pagos</h2></div><p>Consulta tus órdenes, continúa pagos pendientes o carga un comprobante de transferencia/ACH.</p></div>

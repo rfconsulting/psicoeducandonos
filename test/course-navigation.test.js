@@ -25,6 +25,15 @@ test('la navegación ofrece anterior, siguiente y enlace directo por hash', () =
   assert.match(source, /#leccion-\$\{lesson\.id\}/);
 });
 
+test('la certificación aparece como paso final propio de cada módulo', () => {
+  const source = fs.readFileSync(path.join(root, 'public', 'curso.js'), 'utf8');
+  assert.match(source, /module-closure-step/);
+  assert.match(source, /Cierre y certificación del módulo/);
+  assert.match(source, /selectModuleCertification/);
+  assert.match(source, /moduleCertificationReady/);
+  assert.doesNotMatch(source, /workspace\.appendChild\(renderModuleCertification\(module\)\)/);
+});
+
 test('la navegación no abre ni avanza hacia lecciones bloqueadas', () => {
   assert.match(source, /!lesson \|\| lesson\.locked/);
   assert.match(source, /button\.disabled = lesson\.locked/);

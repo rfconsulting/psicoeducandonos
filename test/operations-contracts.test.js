@@ -51,6 +51,28 @@ test('el estudiante dispone de menús separados para pagos y notificaciones', ()
   assert.match(commerce, /payment_receipts/);
 });
 
+test('las consultas nuevas se solicitan exclusivamente desde un profesional', () => {
+  const html = read('public/estudiante.html');
+  const client = read('public/estudiante.js');
+  const operations = read('src/routes/operations.js');
+  assert.doesNotMatch(html, /service-request-form|Solicitar orientación|service-requests-list/);
+  assert.doesNotMatch(client, /setupServiceRequests|loadServiceRequests/);
+  assert.match(client, /scheduling\/services\/\$\{service\.id\}\/slots/);
+  assert.match(client, /scheduling\/services\/\$\{service\.id\}\/holds/);
+  assert.match(operations, /router\.post\('\/service-requests'[\s\S]*?status\(410\)/);
+});
+
+test('la vista estudiantil separa suscripciones y oculta consultas canceladas', () => {
+  const html = read('public/estudiante.html');
+  const client = read('public/estudiante.js');
+  const css = read('public/auth.css');
+  assert.match(html, /consultation-subscriptions/);
+  assert.match(css, /\.consultation-subscriptions\{margin-top:32px\}/);
+  assert.match(client, /cancelled_by_client/);
+  assert.match(client, /cancelled_by_professional/);
+  assert.match(client, /Aún no tienes consultas activas/);
+});
+
 test('las acciones gratuitas y de transferencia se presentan como botones completos', () => {
   const css = read('public/auth.css');
   assert.match(css, /#courses-list \.content-card>button\.content-link\.blocked-course-link:not\(:disabled\)/);
@@ -71,11 +93,18 @@ test('el pago USD identifica visualmente a PayPal', () => {
 test('el profesional tiene una vista privada de consultas pendientes', () => {
   const scheduling = read('src/routes/scheduling.js');
   const html = read('public/dashboard.html');
+  const dashboard = read('public/dashboard.js');
+  const operations = read('src/routes/operations.js');
   assert.match(scheduling, /professional\/appointments\/pending', requireAuth/);
   assert.match(scheduling, /WHERE user_id=\? AND status='active' AND credential_status='verified'/);
   assert.match(scheduling, /a\.professional_id=\? AND a\.status IN \('pending_payment','confirmed'\)/);
   assert.match(html, /data-panel-target="professional-consultations-section"/);
   assert.match(html, /Mis consultas pendientes/);
+  assert.match(html, /id="professional-notifications"/);
+  assert.match(dashboard, /professional_consultation_scheduled/);
+  assert.match(operations, /FROM notifications WHERE user_id=\?/);
+  assert.match(operations, /userId: offer\.professionalUserId/);
+  assert.match(operations, /type: 'professional_consultation_scheduled'/);
 });
 
 test('la descarga del comprobante conserva una extensión reconocible', () => {
