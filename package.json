@@ -69,7 +69,7 @@
     "resend": "^6.18.0"
   },
   "overrides": {
-    "ip-address": "^10.5.0",
+    "ip-address": "^10.7.1",
     "mysql2": "$mysql2",
     "qs": "^6.16.0"
   }
