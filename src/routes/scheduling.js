@@ -71,11 +71,12 @@ router.get('/services', requireRole('student'), async (_req, res, next) => {
 router.get('/appointments/my', requireRole('student'), async (req, res, next) => {
   try {
     const [appointments] = await pool.execute(`SELECT a.public_id AS reference,a.start_at AS startAt,a.end_at AS endAt,a.timezone,a.status,
-      COALESCE(cp.status,'not_started') AS clinicalProgress,
       s.name AS serviceName,u.full_name AS professionalName,o.public_id AS orderReference,o.status AS orderStatus
       FROM appointments a JOIN professional_services s ON s.id=a.service_id JOIN professional_profiles p ON p.id=a.professional_id
-      JOIN users u ON u.id=p.user_id LEFT JOIN orders o ON o.id=a.order_id LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
-      WHERE a.client_user_id=? ORDER BY a.start_at DESC LIMIT 100`, [req.authUser.id]);
+      JOIN users u ON u.id=p.user_id LEFT JOIN orders o ON o.id=a.order_id
+      LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
+      WHERE a.client_user_id=? AND a.status IN ('pending_payment','confirmed') AND COALESCE(cp.status,'not_started')<>'closed'
+      ORDER BY a.start_at ASC LIMIT 100`, [req.authUser.id]);
     return res.json({ appointments });
   } catch (error) { return next(error); }
 });
@@ -94,10 +95,20 @@ router.get('/professional/appointments/pending', requireAuth, async (req, res, n
       LEFT JOIN clinical_record_progress cp ON cp.appointment_id=a.id
       WHERE a.professional_id=? AND a.status IN ('pending_payment','confirmed')
       ORDER BY a.start_at ASC LIMIT 200`, [professional.id]);
-    const [services] = await pool.execute(`SELECT id,name,description,duration_minutes AS durationMinutes,active
+    const [services] = await pool.execute(`SELECT id,service_type AS serviceType,name,description,duration_minutes AS durationMinutes,active
       FROM professional_services WHERE professional_id=? ORDER BY active DESC,name`, [professional.id]);
+    const [availability] = await pool.execute(`SELECT id,weekday,start_time AS startTime,end_time AS endTime,active FROM availability_rules
+      WHERE professional_id=? ORDER BY FIELD(weekday,'mon','tue','wed','thu','fri','sat','sun'),start_time`, [professional.id]);
+    const [exceptions] = await pool.execute(`SELECT id,exception_date AS exceptionDate,start_time AS startTime,end_time AS endTime
+      FROM availability_exceptions WHERE professional_id=? AND exception_type='blocked' AND exception_date>=CURRENT_DATE ORDER BY exception_date,start_time LIMIT 200`, [professional.id]);
+    const [authorizations] = await pool.execute('SELECT service_type_code AS serviceType FROM professional_service_authorizations WHERE professional_id=?', [professional.id]);
+    const serviceIds = services.map(service => service.id); let prices = [];
+    if (serviceIds.length) { const placeholders = serviceIds.map(() => '?').join(','); [prices] = await pool.execute(`SELECT p.service_id AS serviceId,pp.currency,pp.amount_minor AS amountMinor FROM products p JOIN product_prices pp ON pp.product_id=p.id AND pp.active=TRUE WHERE p.service_id IN (${placeholders}) ORDER BY pp.currency`, serviceIds); }
+    services.forEach(service => { service.prices = prices.filter(price => Number(price.serviceId) === Number(service.id)).map(({ serviceId: _id, ...price }) => price); });
     return res.json({ professional: { id: professional.id, timezone: professional.timezone }, appointments,
-      services: services.map(service => ({ ...service, active: Boolean(service.active) })) });
+      services: services.map(service => ({ ...service, active: Boolean(service.active) })),
+      availability: availability.map(rule => ({ ...rule, active: Boolean(rule.active) })), exceptions,
+      authorizedServiceTypes: authorizations.map(item => item.serviceType) });
   } catch (error) { return next(error); }
 });
 
@@ -123,6 +134,104 @@ router.patch('/professional/services/:serviceId/status', requireAuth, verifyCsrf
   } catch (error) { return next(error); }
 });
 
+async function ownedProfessional(db, userId, lock = false) {
+  const [[professional]] = await db.execute(`SELECT id,professional_type AS professionalType,timezone FROM professional_profiles
+    WHERE user_id=? AND status='active' AND credential_status='verified' LIMIT 1${lock ? ' FOR UPDATE' : ''}`, [userId]);
+  return professional || null;
+}
+
+router.post('/professional/services', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const professional = await ownedProfessional(pool, req.authUser.id); const duration = Number(req.body.durationMinutes);
+    const serviceType = String(req.body.serviceType || ''); const name = text(req.body.name, 180); const description = text(req.body.description, 10000);
+    if (!professional) return res.status(403).json({ error: 'Necesitas un perfil profesional activo y verificado.' });
+    if (!validServiceType(serviceType) || !Number.isInteger(duration) || duration < 15 || duration > 240 || name.length < 5 || description.length < 20) return res.status(422).json({ error: 'Datos del servicio inválidos.' });
+    const [[authorization]] = await pool.execute('SELECT 1 FROM professional_service_authorizations WHERE professional_id=? AND service_type_code=? LIMIT 1', [professional.id, serviceType]);
+    if (!authorization || !professionalCanOffer(professional.professionalType, serviceType)) return res.status(403).json({ error: 'No estás habilitado para ofrecer ese tipo de servicio.' });
+    const [created] = await pool.execute('INSERT INTO professional_services (professional_id,service_type,name,description,delivery_mode,participant_format,duration_minutes) VALUES (?,?,?,?,?,?,?)', [professional.id, serviceType, name, description, 'online', 'individual', duration]);
+    await audit(req, 'professional_service_created_by_owner', 'professional_service', created.insertId, { professionalId: professional.id }, { required: true });
+    return res.status(201).json({ message: 'Servicio creado.', id: created.insertId });
+  } catch (error) { return next(error); }
+});
+
+router.patch('/professional/services/:serviceId', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const serviceId = Number(req.params.serviceId); const duration = Number(req.body.durationMinutes); const name = text(req.body.name, 180); const description = text(req.body.description, 10000);
+    if (!Number.isSafeInteger(serviceId) || name.length < 5 || description.length < 20 || !Number.isInteger(duration) || duration < 15 || duration > 240) return res.status(422).json({ error: 'Revisa el nombre, la descripción y la duración.' });
+    const [updated] = await pool.execute(`UPDATE professional_services s JOIN professional_profiles p ON p.id=s.professional_id
+      SET s.name=?,s.description=?,s.duration_minutes=? WHERE s.id=? AND p.user_id=? AND p.status='active' AND p.credential_status='verified'`, [name, description, duration, serviceId, req.authUser.id]);
+    if (!updated.affectedRows) return res.status(404).json({ error: 'Servicio no encontrado en tu perfil.' });
+    await pool.execute('UPDATE products SET name=? WHERE service_id=?', [name, serviceId]);
+    await audit(req, 'professional_service_updated_by_owner', 'professional_service', serviceId, null, { required: true });
+    return res.json({ message: 'Servicio actualizado.' });
+  } catch (error) { return next(error); }
+});
+
+router.post('/professional/services/:serviceId/prices', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const serviceId = Number(req.params.serviceId); const currency = String(req.body.currency || '').toUpperCase(); const amountMinor = Number(req.body.amountMinor);
+    if (!Number.isSafeInteger(serviceId) || !['ARS','USD'].includes(currency) || !Number.isSafeInteger(amountMinor) || amountMinor < 1) return res.status(422).json({ error: 'Precio inválido.' });
+    const result = await withTransaction(async connection => {
+      const [[service]] = await connection.execute(`SELECT s.id,s.name FROM professional_services s JOIN professional_profiles p ON p.id=s.professional_id WHERE s.id=? AND p.user_id=? AND p.status='active' AND p.credential_status='verified' LIMIT 1 FOR UPDATE`, [serviceId, req.authUser.id]);
+      if (!service) return false;
+      await connection.execute('INSERT INTO products (service_id,name) VALUES (?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),active=TRUE', [service.id, service.name]);
+      const [[product]] = await connection.execute('SELECT id FROM products WHERE service_id=? LIMIT 1 FOR UPDATE', [service.id]);
+      await connection.execute('UPDATE product_prices SET active=FALSE WHERE product_id=? AND currency=?', [product.id, currency]);
+      await connection.execute('INSERT INTO product_prices (product_id,currency,amount_minor) VALUES (?,?,?)', [product.id, currency, amountMinor]);
+      await audit(req, 'service_price_created_by_owner', 'professional_service', service.id, { currency, amountMinor }, { db: connection, required: true }); return true;
+    });
+    if (!result) return res.status(404).json({ error: 'Servicio no encontrado en tu perfil.' });
+    return res.status(201).json({ message: 'Precio guardado.' });
+  } catch (error) { return next(error); }
+});
+
+router.post('/professional/availability', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const professional = await ownedProfessional(pool, req.authUser.id); const start = text(req.body.startTime, 5); const end = text(req.body.endTime, 5);
+    if (!professional) return res.status(403).json({ error: 'Perfil profesional no disponible.' });
+    if (!WEEKDAYS.includes(req.body.weekday) || minutes(start) === null || minutes(end) === null || minutes(end) <= minutes(start)) return res.status(422).json({ error: 'Día u horario inválido.' });
+    const [created] = await pool.execute('INSERT INTO availability_rules (professional_id,weekday,start_time,end_time) VALUES (?,?,?,?)', [professional.id, req.body.weekday, start, end]);
+    await audit(req, 'professional_availability_created_by_owner', 'availability_rule', created.insertId, null, { required: true });
+    return res.status(201).json({ message: 'Horario semanal agregado.' });
+  } catch (error) { return next(error); }
+});
+
+router.delete('/professional/availability/:ruleId', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const ruleId = Number(req.params.ruleId); if (!Number.isSafeInteger(ruleId)) return res.status(422).json({ error: 'Horario inválido.' });
+    const [deleted] = await pool.execute(`DELETE r FROM availability_rules r JOIN professional_profiles p ON p.id=r.professional_id WHERE r.id=? AND p.user_id=?`, [ruleId, req.authUser.id]);
+    if (!deleted.affectedRows) return res.status(404).json({ error: 'Horario no encontrado.' });
+    await audit(req, 'professional_availability_removed_by_owner', 'availability_rule', ruleId, null, { required: true });
+    return res.json({ message: 'Horario semanal eliminado.' });
+  } catch (error) { return next(error); }
+});
+
+router.post('/professional/availability-blocks', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const professional = await ownedProfessional(pool, req.authUser.id); const date = text(req.body.date, 10); const start = text(req.body.startTime, 5); const end = text(req.body.endTime, 5);
+    if (!professional) return res.status(403).json({ error: 'Perfil profesional no disponible.' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || minutes(start) === null || minutes(end) === null || minutes(end) <= minutes(start)) return res.status(422).json({ error: 'Fecha u horario de bloqueo inválido.' });
+    const startAt = zonedDateTimeToUtc(date, start, professional.timezone); const endAt = zonedDateTimeToUtc(date, end, professional.timezone);
+    if (!startAt || !endAt || endAt <= new Date()) return res.status(422).json({ error: 'El bloqueo debe corresponder a un horario futuro.' });
+    const [[collision]] = await pool.execute(`SELECT 1 FROM appointments WHERE professional_id=? AND start_at<? AND end_at>? AND status IN ('pending_payment','confirmed')
+      UNION ALL SELECT 1 FROM appointment_holds WHERE professional_id=? AND start_at<? AND end_at>? AND expires_at>UTC_TIMESTAMP() LIMIT 1`, [professional.id, endAt, startAt, professional.id, endAt, startAt]);
+    if (collision) return res.status(409).json({ error: 'Ya existe una consulta o reserva en ese horario. Debes resolverla antes de bloquearlo.' });
+    const [created] = await pool.execute("INSERT INTO availability_exceptions (professional_id,exception_date,start_time,end_time,exception_type) VALUES (?,?,?,?,'blocked')", [professional.id, date, start, end]);
+    await audit(req, 'professional_availability_blocked', 'availability_exception', created.insertId, { date, start, end }, { required: true });
+    return res.status(201).json({ message: 'Horario bloqueado. Ya no aparecerá disponible para pacientes.' });
+  } catch (error) { return next(error); }
+});
+
+router.delete('/professional/availability-blocks/:blockId', requireAuth, verifyCsrf, async (req, res, next) => {
+  try {
+    const blockId = Number(req.params.blockId); if (!Number.isSafeInteger(blockId)) return res.status(422).json({ error: 'Bloqueo inválido.' });
+    const [deleted] = await pool.execute(`DELETE e FROM availability_exceptions e JOIN professional_profiles p ON p.id=e.professional_id WHERE e.id=? AND e.exception_type='blocked' AND p.user_id=?`, [blockId, req.authUser.id]);
+    if (!deleted.affectedRows) return res.status(404).json({ error: 'Bloqueo no encontrado.' });
+    await audit(req, 'professional_availability_block_removed', 'availability_exception', blockId, null, { required: true });
+    return res.json({ message: 'Bloqueo eliminado.' });
+  } catch (error) { return next(error); }
+});
+
 router.get('/services/:serviceId/slots', requireRole('student'), async (req, res, next) => {
   try {
     const serviceId = Number(req.params.serviceId); const date = text(req.query.date, 10);
@@ -142,7 +251,7 @@ router.get('/services/:serviceId/slots', requireRole('student'), async (req, res
       if (!slot.startAt || slot.startAt <= new Date()) return false;
       const endAt = new Date(slot.startAt.getTime() + service.durationMinutes * 60000);
       return !occupied.some(item => conflictsWithConsultation(slot.startAt, endAt, item.start, item.end)) &&
-        !blocked.some(item => { const value = minutes(slot.time); return value >= minutes(String(item.startTime).slice(0, 5)) && value < minutes(String(item.endTime).slice(0, 5)); });
+        !blocked.some(item => { const value = minutes(slot.time); return value < minutes(String(item.endTime).slice(0, 5)) && value + service.durationMinutes > minutes(String(item.startTime).slice(0, 5)); });
     }).map(slot => ({ time: slot.time, startAt: slot.startAt.toISOString() }));
     return res.json({ timezone: service.timezone, slots });
   } catch (error) { return next(error); }

@@ -13,6 +13,16 @@ test('los paneles de profesor y estudiante incluyen identidad en el menú', () =
   }
 });
 
+test('el menú del panel se organiza por administración, educativo y consultas según el rol', () => {
+  const html = fs.readFileSync(path.join(root, 'public', 'dashboard.html'), 'utf8');
+  const client = fs.readFileSync(path.join(root, 'public', 'dashboard.js'), 'utf8');
+  assert.match(html, /id="administration-nav-group"/);
+  assert.match(html, /id="education-nav-group"/);
+  assert.match(html, /id="consultations-nav-group"/);
+  assert.match(client, /currentUser\.role==='teacher'.*consultations-nav-group/);
+  assert.match(client, /\['superuser','administrator'\].*administration-nav-group/);
+});
+
 test('el resumen estudiantil usa datos recibidos y no estadísticas ficticias', () => {
   const source = fs.readFileSync(path.join(root, 'public', 'estudiante.js'), 'utf8');
   assert.match(source, /renderStudentSummary\(enrolledCourses,availableCourses,articles\)/);

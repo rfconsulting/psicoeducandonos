@@ -27,16 +27,25 @@
       <p class="sidebar-label">Panel de control</p>
       <nav class="dashboard-nav">
         <button class="nav-item active" type="button" data-panel-target="overview-panel">Inicio</button>
-        <button class="nav-item" type="button" data-panel-target="reports-panel" id="reports-nav" hidden>Reportes y estadísticas</button>
-        <button class="nav-item" type="button" data-panel-target="blog-section" id="blog-nav">Blog</button>
-        <button class="nav-item" type="button" data-panel-target="courses-section" id="courses-nav">Formación</button>
-        <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
-        <button class="nav-item" type="button" data-panel-target="professional-consultations-section" id="professional-consultations-nav" hidden>Mis consultas</button>
-        <button class="nav-item" type="button" data-panel-target="admin-section" id="users-nav" hidden>Usuarios</button>
-        <button class="nav-item" type="button" data-panel-target="professionals-section" id="professionals-nav" hidden>Profesionales y agenda</button>
-        <button class="nav-item" type="button" data-panel-target="operations-section" id="operations-nav" hidden>Pagos y consultas</button>
-        <button class="nav-item" type="button" data-panel-target="profile-reviews-section" id="profile-reviews-nav" hidden>Validación de estudiantes</button>
-        <button class="nav-item" type="button" data-panel-target="audit-section" id="audit-nav" hidden>Registro de actividad</button>
+        <section class="nav-group" id="education-nav-group" aria-labelledby="education-nav-title">
+          <h2 class="nav-group-title" id="education-nav-title">Educativo</h2>
+          <button class="nav-item" type="button" data-panel-target="blog-section" id="blog-nav">Blog</button>
+          <button class="nav-item" type="button" data-panel-target="courses-section" id="courses-nav">Formación</button>
+          <button class="nav-item" type="button" data-panel-target="tracking-section" id="tracking-nav" hidden>Seguimiento académico</button>
+        </section>
+        <section class="nav-group" id="consultations-nav-group" aria-labelledby="consultations-nav-title" hidden>
+          <h2 class="nav-group-title" id="consultations-nav-title">Consultas</h2>
+          <button class="nav-item" type="button" data-panel-target="professional-consultations-section" id="professional-consultations-nav" hidden>Mis consultas</button>
+          <button class="nav-item" type="button" data-panel-target="professionals-section" id="professionals-nav" hidden>Profesionales y agenda</button>
+          <button class="nav-item" type="button" data-panel-target="operations-section" id="operations-nav" hidden>Pagos y consultas</button>
+        </section>
+        <section class="nav-group" id="administration-nav-group" aria-labelledby="administration-nav-title" hidden>
+          <h2 class="nav-group-title" id="administration-nav-title">Administración</h2>
+          <button class="nav-item" type="button" data-panel-target="reports-panel" id="reports-nav" hidden>Reportes y estadísticas</button>
+          <button class="nav-item" type="button" data-panel-target="admin-section" id="users-nav" hidden>Usuarios</button>
+          <button class="nav-item" type="button" data-panel-target="profile-reviews-section" id="profile-reviews-nav" hidden>Validación de estudiantes</button>
+          <button class="nav-item" type="button" data-panel-target="audit-section" id="audit-nav" hidden>Registro de actividad</button>
+        </section>
       </nav>
     </aside>
     <main class="dashboard-content">
@@ -267,7 +276,13 @@
       <div class="content-heading professional-services-heading"><div><span>Actividad privada</span><h3>Notificaciones</h3></div><p>Solo tú puedes ver los avisos de las consultas agendadas con tu perfil.</p></div>
       <div class="applications-list" id="professional-notifications" aria-live="polite"></div>
       <div class="content-heading professional-services-heading"><div><span>Perfil profesional</span><h3>Mis servicios</h3></div><p>Retira un servicio para ocultarlo del directorio sin perder su historial.</p></div>
+      <form class="editor-form" id="professional-own-service-form"><h4>Agregar servicio</h4><div class="form-grid"><div class="field"><label>Tipo autorizado<select name="serviceType" required></select></label></div><div class="field"><label>Nombre<input name="name" minlength="5" maxlength="180" required></label></div><div class="field"><label>Duración (minutos)<input name="durationMinutes" type="number" min="15" max="240" value="50" required></label></div><div class="field"><label>Moneda<select name="currency"><option value="USD">USD</option><option value="ARS">ARS</option></select></label></div><div class="field"><label>Precio<input name="amount" type="number" min="0.01" step="0.01" required></label></div></div><div class="field"><label>Descripción<textarea name="description" minlength="20" maxlength="10000" required></textarea></label></div><button class="small-button" type="submit">Crear servicio</button><p class="form-message"></p></form>
       <div class="applications-list" id="professional-own-services" aria-live="polite"></div>
+      <div class="content-heading professional-services-heading"><div><span>Calendario</span><h3>Mi disponibilidad</h3></div><p>Configura tu horario semanal y bloquea fechas excepcionales para evitar conflictos.</p></div>
+      <form class="editor-form" id="professional-availability-form"><h4>Agregar horario semanal</h4><div class="form-grid"><div class="field"><label>Día<select name="weekday"><option value="mon">Lunes</option><option value="tue">Martes</option><option value="wed">Miércoles</option><option value="thu">Jueves</option><option value="fri">Viernes</option><option value="sat">Sábado</option><option value="sun">Domingo</option></select></label></div><div class="field"><label>Desde<input name="startTime" type="time" required></label></div><div class="field"><label>Hasta<input name="endTime" type="time" required></label></div></div><button class="small-button" type="submit">Agregar disponibilidad</button><p class="form-message"></p></form>
+      <div class="applications-list" id="professional-availability-list" aria-live="polite"></div>
+      <form class="editor-form" id="professional-block-form"><h4>Bloquear un horario</h4><div class="form-grid"><div class="field"><label>Fecha<input name="date" type="date" required></label></div><div class="field"><label>Desde<input name="startTime" type="time" required></label></div><div class="field"><label>Hasta<input name="endTime" type="time" required></label></div></div><button class="small-button secondary-button" type="submit">Bloquear horario</button><p class="form-message"></p></form>
+      <div class="applications-list" id="professional-blocks-list" aria-live="polite"></div>
       <div class="course-toolbar"><label class="field" for="professional-consultation-status">Estado<select id="professional-consultation-status"><option value="">Todas las pendientes</option><option value="confirmed">Confirmadas</option><option value="pending_payment">Pendientes de pago</option></select></label></div>
       <div class="applications-list" id="professional-consultations-list" aria-live="polite"></div>
       <p class="form-message" id="professional-consultations-message" role="alert"></p>

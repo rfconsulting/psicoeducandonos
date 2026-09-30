@@ -57,6 +57,36 @@ test('el profesional puede retirar sus propios servicios sin borrar el historial
   assert.match(dashboard, /Las citas y pagos anteriores se conservarán/);
 });
 
+test('el profesional administra solo sus servicios, precios y disponibilidad', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/scheduling.js'), 'utf8');
+  const dashboard = fs.readFileSync(path.join(__dirname, '../public/dashboard.js'), 'utf8');
+  assert.match(route, /router\.post\('\/professional\/services', requireAuth, verifyCsrf/);
+  assert.match(route, /router\.post\('\/professional\/services\/:serviceId\/prices', requireAuth, verifyCsrf/);
+  assert.match(route, /router\.post\('\/professional\/availability', requireAuth, verifyCsrf/);
+  assert.match(route, /p\.user_id=\?/);
+  assert.match(route, /professional_service_authorizations/);
+  assert.match(dashboard, /setupProfessionalSelfManagement/);
+});
+
+test('los bloqueos del calendario impiden ofrecer o reservar horarios en conflicto', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/scheduling.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../public/dashboard.html'), 'utf8');
+  assert.match(route, /router\.post\('\/professional\/availability-blocks', requireAuth, verifyCsrf/);
+  assert.match(route, /exception_type='blocked'/);
+  assert.match(route, /Ya existe una consulta o reserva en ese horario/);
+  assert.match(route, /value \+ service\.durationMinutes/);
+  assert.match(html, /id="professional-block-form"/);
+});
+
+test('el perfil del paciente recibe únicamente consultas pendientes de pago o confirmadas', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../src/routes/scheduling.js'), 'utf8');
+  assert.match(route, /a\.client_user_id=\? AND a\.status IN \('pending_payment','confirmed'\)/);
+  const patientQuery = route.match(/router\.get\('\/appointments\/my'[\s\S]*?return res\.json\(\{ appointments \}\);/)[0];
+  assert.doesNotMatch(patientQuery, /clinicalProgress/);
+  assert.match(patientQuery, /COALESCE\(cp\.status,'not_started'\)<>'closed'/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../public/auth.css'), 'utf8'), /#my-consultations-list \.enrollment-status \+ p\{display:none\}/);
+});
+
 test('valida zona horaria y rangos de minutos', () => {
   assert.equal(validTimezone('America/Panama'), true);
   assert.equal(validTimezone('Planeta/Inexistente'), false);
