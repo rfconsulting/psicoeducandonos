@@ -23,6 +23,24 @@ test('el menú del panel se organiza por administración, educativo y consultas 
   assert.match(client, /\['superuser','administrator'\].*administration-nav-group/);
 });
 
+test('el editor de artículos conserva un catálogo legible y acciones compactas', () => {
+  const css = fs.readFileSync(path.join(root, 'public', 'auth.css'), 'utf8').replace(/\s+/g, '');
+  const client = fs.readFileSync(path.join(root, 'public', 'dashboard.js'), 'utf8');
+  assert.match(css, /grid-template-columns:minmax\(0,1\.3fr\)minmax\(400px,1fr\)/);
+  assert.match(css, /article-catalog\.blog-cardh3\{[^}]*-webkit-line-clamp:3/);
+  assert.match(css, /#article-form\.publish-row\{position:sticky/);
+  assert.match(client, /function renderTeacherArticles[\s\S]*card\.className='content-card blog-card'/);
+  assert.match(client, /view\.textContent='Ver artículo'/);
+});
+
+test('formación replica el patrón legible del editor y catálogo', () => {
+  const css = fs.readFileSync(path.join(root, 'public', 'auth.css'), 'utf8').replace(/\s+/g, '');
+  assert.match(css, /formation-workspace\{display:grid;grid-template-columns:minmax\(0,1\.3fr\)minmax\(400px,1fr\)/);
+  assert.match(css, /course-catalog\.course-topic-infoh4\{[^}]*-webkit-line-clamp:3/);
+  assert.match(css, /course-catalog\.course-topic-actions\.small-button:first-child\{border-color:var\(--coral\);background:var\(--coral\)/);
+  assert.match(css, /#course-form\.publish-row\{position:sticky/);
+});
+
 test('el resumen estudiantil usa datos recibidos y no estadísticas ficticias', () => {
   const source = fs.readFileSync(path.join(root, 'public', 'estudiante.js'), 'utf8');
   assert.match(source, /renderStudentSummary\(enrolledCourses,availableCourses,articles\)/);
